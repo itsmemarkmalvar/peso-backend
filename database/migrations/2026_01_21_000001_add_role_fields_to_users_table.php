@@ -15,7 +15,7 @@ return new class extends Migration
             // Keep Laravel default `name` column; add username + RBAC fields used by the API layer.
             $table->string('username')->nullable()->unique()->after('name');
 
-            $table->enum('role', ['admin', 'intern', 'supervisor', 'coordinator'])
+            $table->enum('role', ['admin', 'intern', 'coordinator'])
                 ->default('intern')
                 ->after('password')
                 ->index();

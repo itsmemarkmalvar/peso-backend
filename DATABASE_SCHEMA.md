@@ -49,7 +49,7 @@ Core authentication and user management table.
 | `email` | VARCHAR(255) | UNIQUE, NOT NULL | Email address |
 | `email_verified_at` | TIMESTAMP | NULLABLE | Email verification timestamp |
 | `password` | VARCHAR(255) | NOT NULL | Hashed password (bcrypt) |
-| `role` | ENUM | NOT NULL, DEFAULT 'intern' | User role: 'admin', 'intern', 'supervisor', 'coordinator' |
+| `role` | ENUM | NOT NULL, DEFAULT 'intern' | User role: 'admin', 'intern', 'coordinator' |
 | `status` | ENUM | NOT NULL, DEFAULT 'active' | Account status: 'active', 'inactive', 'suspended' |
 | `device_fingerprint` | VARCHAR(255) | NULLABLE, INDEX | Device fingerprint for security |
 | `last_login_at` | TIMESTAMP | NULLABLE | Last login timestamp |

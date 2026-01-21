@@ -44,15 +44,7 @@ trait HasRoles
     }
 
     /**
-     * Check if user is supervisor
-     */
-    public function isSupervisor(): bool
-    {
-        return $this->hasRole(UserRole::SUPERVISOR);
-    }
-
-    /**
-     * Check if user is coordinator
+     * Check if user is coordinator (combined coordinator/supervisor role)
      */
     public function isCoordinator(): bool
     {
