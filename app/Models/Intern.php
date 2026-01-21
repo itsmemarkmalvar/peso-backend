@@ -13,8 +13,13 @@ class Intern extends Model
         'user_id',
         'student_id',
         'full_name',
+        'school',
         'course',
         'year_level',
+        'phone',
+        'emergency_contact_name',
+        'emergency_contact_phone',
+        'required_hours',
         'company_name',
         'supervisor_name',
         'supervisor_email',
@@ -22,12 +27,15 @@ class Intern extends Model
         'start_date',
         'end_date',
         'is_active',
+        'onboarded_at',
     ];
 
     protected $casts = [
         'start_date' => 'date',
         'end_date' => 'date',
         'is_active' => 'boolean',
+        'required_hours' => 'integer',
+        'onboarded_at' => 'datetime',
     ];
 
     public function user()
@@ -35,4 +43,3 @@ class Intern extends Model
         return $this->belongsTo(User::class);
     }
 }
-

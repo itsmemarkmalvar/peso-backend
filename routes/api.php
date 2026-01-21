@@ -31,6 +31,8 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Interns
     Route::prefix('interns')->group(function () {
+        Route::get('/me', [App\Http\Controllers\Api\Interns\InternController::class, 'me']);
+        Route::post('/me', [App\Http\Controllers\Api\Interns\InternController::class, 'storeProfile']);
         Route::get('/', [App\Http\Controllers\Api\Interns\InternController::class, 'index']);
         Route::post('/', [App\Http\Controllers\Api\Interns\InternController::class, 'store']);
         Route::get('/{id}', [App\Http\Controllers\Api\Interns\InternController::class, 'show']);
