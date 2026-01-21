@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Auth;
 
 use App\Enums\UserRole;
 use App\Http\Controllers\Api\BaseController;
+use App\Models\RegistrationRequest;
 use App\Models\User;
 use App\Models\PendingRegistration;
 use Illuminate\Http\JsonResponse;
@@ -42,6 +43,44 @@ class AuthController extends BaseController
         return $this->success([
             'pending_registration' => $pendingRegistration,
         ], 'Registration request submitted successfully. Please wait for admin approval.', 201);
+    }
+
+    /**
+     * Register request (admin approval + email setup)
+     */
+    public function registerRequest(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|min:2|max:255',
+            'email' => 'required|email|max:255',
+        ]);
+
+        if (User::where('email', $validated['email'])->exists()) {
+            throw ValidationException::withMessages([
+                'email' => ['This email is already registered.'],
+            ]);
+        }
+
+        $existingRequest = RegistrationRequest::where('email', $validated['email'])
+            ->whereIn('status', ['pending', 'approved'])
+            ->first();
+
+        if ($existingRequest) {
+            throw ValidationException::withMessages([
+                'email' => ['A registration request already exists for this email.'],
+            ]);
+        }
+
+        $registrationRequest = RegistrationRequest::create([
+            'full_name' => $validated['name'],
+            'email' => $validated['email'],
+            'status' => 'pending',
+        ]);
+
+        return $this->success([
+            'id' => $registrationRequest->id,
+            'status' => $registrationRequest->status,
+        ], 'Registration request submitted', 201);
     }
 
     /**
