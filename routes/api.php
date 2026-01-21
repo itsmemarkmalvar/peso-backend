@@ -80,4 +80,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/stats', [App\Http\Controllers\Api\Dashboard\DashboardController::class, 'stats']);
         Route::get('/recent-activity', [App\Http\Controllers\Api\Dashboard\DashboardController::class, 'recentActivity']);
     });
+
+    // Pending Registrations (Admin only)
+    Route::prefix('pending-registrations')->group(function () {
+        Route::get('/', [App\Http\Controllers\Api\PendingRegistrationsController::class, 'index']);
+        Route::get('/{id}', [App\Http\Controllers\Api\PendingRegistrationsController::class, 'show']);
+        Route::post('/{id}/approve', [App\Http\Controllers\Api\PendingRegistrationsController::class, 'approve']);
+        Route::post('/{id}/reject', [App\Http\Controllers\Api\PendingRegistrationsController::class, 'reject']);
+    });
 });

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Auth;
 use App\Enums\UserRole;
 use App\Http\Controllers\Api\BaseController;
 use App\Models\User;
+use App\Models\PendingRegistration;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -14,45 +15,33 @@ use Illuminate\Support\Str;
 class AuthController extends BaseController
 {
     /**
-     * Register user (default role: intern)
+     * Register user - creates pending registration (requires admin approval)
      */
     public function register(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'name' => 'required|string|min:2|max:255',
-            'email' => 'required|email|max:255|unique:users,email',
-            'password' => 'required|string|min:8|confirmed',
+            'email' => 'required|email|max:255|unique:users,email|unique:pending_registrations,email',
         ]);
 
-        $baseUsername = Str::of($validated['email'])->before('@')->lower()->replaceMatches('/[^a-z0-9_\.]/', '');
-        $username = (string) $baseUsername;
-        if ($username === '') {
-            $username = 'intern';
+        // Check if email already exists in pending registrations
+        $existingPending = PendingRegistration::where('email', $validated['email'])
+            ->where('status', 'pending')
+            ->first();
+
+        if ($existingPending) {
+            return $this->error('A registration request with this email is already pending approval.', 422);
         }
 
-        // Ensure username uniqueness (username column is nullable+unique)
-        $candidate = $username;
-        $suffix = 0;
-        while (User::where('username', $candidate)->exists()) {
-            $suffix++;
-            $candidate = $username.$suffix;
-        }
-
-        $user = User::create([
+        $pendingRegistration = PendingRegistration::create([
             'name' => $validated['name'],
-            'username' => $candidate,
             'email' => $validated['email'],
-            'password' => $validated['password'], // hashed via User cast
-            'role' => UserRole::INTERN,
-            'status' => 'active',
+            'status' => 'pending',
         ]);
-
-        $token = $user->createToken('auth-token')->plainTextToken;
 
         return $this->success([
-            'user' => $user,
-            'token' => $token,
-        ], 'Registration successful', 201);
+            'pending_registration' => $pendingRegistration,
+        ], 'Registration request submitted successfully. Please wait for admin approval.', 201);
     }
 
     /**
