@@ -29,6 +29,12 @@ class AuthController extends BaseController
             ]);
         }
 
+        if (isset($user->status) && $user->status !== 'active') {
+            throw ValidationException::withMessages([
+                'email' => ['Your account is not active. Please contact the administrator.'],
+            ]);
+        }
+
         $token = $user->createToken('auth-token')->plainTextToken;
 
         return $this->success([

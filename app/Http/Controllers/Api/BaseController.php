@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Helpers\ResponseHelper;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Routing\Controller as LaravelController;
 
-class BaseController extends BaseController
+class BaseController extends LaravelController
 {
     /**
      * Success response
