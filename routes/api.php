@@ -58,6 +58,73 @@ Route::get('/test-email', function (Request $request) {
     }
 });
 
+// Debug logo route (public - for testing logo file)
+Route::get('/test-logo', function () {
+    $logoPath = public_path('images/image-Photoroom.png');
+    $logoPath2 = base_path('public/images/image-Photoroom.png');
+    
+    $logoBase64 = null;
+    if (file_exists($logoPath)) {
+        try {
+            $logoData = file_get_contents($logoPath);
+            $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
+        } catch (\Exception $e) {
+            // Ignore
+        }
+    }
+    
+    return response()->json([
+        'public_path' => $logoPath,
+        'base_path' => $logoPath2,
+        'exists_public' => file_exists($logoPath),
+        'exists_base' => file_exists($logoPath2),
+        'public_path_resolved' => realpath($logoPath) ?: 'not found',
+        'base_path_resolved' => realpath($logoPath2) ?: 'not found',
+        'base64_length' => file_exists($logoPath) ? strlen(base64_encode(file_get_contents($logoPath))) : 0,
+        'base64_preview' => $logoBase64 ? substr($logoBase64, 0, 100) . '...' : 'not generated',
+        'file_size' => file_exists($logoPath) ? filesize($logoPath) : 0,
+    ]);
+});
+
+// Preview email HTML (public - for testing email template rendering)
+Route::get('/preview-invitation-email', function (Request $request) {
+    $role = $request->query('role', 'supervisor');
+    
+    // Create a mock user object for testing
+    $mockUser = (object) [
+        'name' => 'Test User',
+        'email' => 'test@example.com',
+    ];
+    
+    // Generate a test invitation URL
+    $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000');
+    $testToken = 'test-token-' . \Illuminate\Support\Str::random(32);
+    $invitationUrl = "{$frontendUrl}/invitation/accept?token={$testToken}";
+    
+    // Create mail instance to get logo data
+    $mail = new App\Mail\InvitationMail($mockUser, $invitationUrl, $role);
+    
+    // Render the email view
+    try {
+        $html = view('emails.invitation', [
+            'user' => $mockUser,
+            'invitationUrl' => $invitationUrl,
+            'role' => $role,
+            'logoBase64' => $mail->logoBase64,
+            'logoPath' => $mail->logoPath,
+            // Note: $message is only available when actually sending email via Mail::send()
+            // For preview, we rely on base64 which should work
+        ])->render();
+        
+        return response($html)->header('Content-Type', 'text/html');
+    } catch (\Exception $e) {
+        return response()->json([
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ], 500);
+    }
+});
+
 // Test invitation email route (public - for testing invitation email template)
 Route::get('/test-invitation-email', function (Request $request) {
     try {
@@ -75,9 +142,23 @@ Route::get('/test-invitation-email', function (Request $request) {
         $testToken = 'test-token-' . \Illuminate\Support\Str::random(32);
         $invitationUrl = "{$frontendUrl}/invitation/accept?token={$testToken}";
         
-        \Illuminate\Support\Facades\Mail::to($toEmail)->send(
-            new App\Mail\InvitationMail($mockUser, $invitationUrl, $role)
-        );
+        // Create mail instance to check logo status
+        $mail = new App\Mail\InvitationMail($mockUser, $invitationUrl, $role);
+        
+        \Illuminate\Support\Facades\Mail::to($toEmail)->send($mail);
+        
+        // Check logo file status
+        $logoPath = public_path('images/image-Photoroom.png');
+        $logoExists = file_exists($logoPath);
+        $logoBase64Length = 0;
+        if ($logoExists) {
+            try {
+                $logoData = file_get_contents($logoPath);
+                $logoBase64Length = strlen(base64_encode($logoData));
+            } catch (\Exception $e) {
+                // Ignore
+            }
+        }
         
         return response()->json([
             'success' => true,
@@ -85,6 +166,13 @@ Route::get('/test-invitation-email', function (Request $request) {
             'sent_to' => $toEmail,
             'role' => $role,
             'from' => env('MAIL_FROM_ADDRESS'),
+            'logo_status' => [
+                'file_exists' => $logoExists,
+                'file_path' => $logoPath,
+                'base64_encoded' => !empty($mail->logoBase64),
+                'base64_length' => $logoBase64Length,
+                'logo_path_set' => !empty($mail->logoPath),
+            ],
             'note' => 'This is a test email. The invitation link will not work.',
         ], 200);
     } catch (\Exception $e) {
@@ -92,6 +180,7 @@ Route::get('/test-invitation-email', function (Request $request) {
             'success' => false,
             'message' => 'Failed to send test invitation email',
             'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
         ], 500);
     }
 });
