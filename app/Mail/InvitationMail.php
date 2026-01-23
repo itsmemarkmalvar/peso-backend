@@ -15,6 +15,7 @@ class InvitationMail extends Mailable
     public $user;
     public $invitationUrl;
     public $role;
+    public $logoBase64;
 
     /**
      * Create a new message instance.
@@ -24,6 +25,16 @@ class InvitationMail extends Mailable
         $this->user = $user;
         $this->invitationUrl = $invitationUrl;
         $this->role = $role;
+        
+        // Embed logo as base64 for email compatibility
+        $logoPath = public_path('images/image-Photoroom.png');
+        if (file_exists($logoPath)) {
+            $logoData = file_get_contents($logoPath);
+            $logoBase64 = base64_encode($logoData);
+            $this->logoBase64 = 'data:image/png;base64,' . $logoBase64;
+        } else {
+            $this->logoBase64 = null;
+        }
     }
 
     /**

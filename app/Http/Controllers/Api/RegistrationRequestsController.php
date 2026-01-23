@@ -49,7 +49,7 @@ class RegistrationRequestsController extends BaseController
     public function approve(Request $request, int $id): JsonResponse
     {
         $validated = $request->validate([
-            'role' => 'required|string|in:admin,coordinator,intern',
+            'role' => 'required|string|in:admin,supervisor,gip,intern',
             'department_id' => 'nullable|integer|exists:departments,id',
         ]);
 
@@ -70,9 +70,9 @@ class RegistrationRequestsController extends BaseController
             return $this->error('A user with this email already exists.', 422);
         }
 
-        // Validate department is required for intern role
-        if ($validated['role'] === 'intern' && !$validated['department_id']) {
-            return $this->error('Department is required for intern role.', 422);
+        // Validate department is required for intern and GIP roles
+        if (in_array($validated['role'], ['intern', 'gip']) && !$validated['department_id']) {
+            return $this->error('Department is required for ' . $validated['role'] . ' role.', 422);
         }
 
         // Generate username from email
@@ -96,7 +96,8 @@ class RegistrationRequestsController extends BaseController
         // Map role string to UserRole enum
         $role = match($validated['role']) {
             'admin' => UserRole::ADMIN,
-            'coordinator' => UserRole::COORDINATOR,
+            'supervisor' => UserRole::SUPERVISOR,
+            'gip' => UserRole::GIP,
             'intern' => UserRole::INTERN,
             default => UserRole::INTERN,
         };

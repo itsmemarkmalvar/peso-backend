@@ -44,10 +44,26 @@ trait HasRoles
     }
 
     /**
-     * Check if user is coordinator (combined coordinator/supervisor role)
+     * Check if user is supervisor
      */
-    public function isCoordinator(): bool
+    public function isSupervisor(): bool
     {
-        return $this->hasRole(UserRole::COORDINATOR);
+        return $this->hasRole(UserRole::SUPERVISOR);
+    }
+
+    /**
+     * Check if user is GIP
+     */
+    public function isGip(): bool
+    {
+        return $this->hasRole(UserRole::GIP);
+    }
+
+    /**
+     * Check if user is intern or GIP (same restrictions)
+     */
+    public function isInternOrGip(): bool
+    {
+        return $this->hasAnyRole([UserRole::INTERN, UserRole::GIP]);
     }
 }
