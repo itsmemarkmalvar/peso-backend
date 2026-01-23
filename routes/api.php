@@ -27,6 +27,75 @@ Route::prefix('auth')->group(function () {
     Route::get('/me', [App\Http\Controllers\Api\Auth\AuthController::class, 'me'])->middleware('auth:sanctum');
 });
 
+// Invitation routes (public)
+Route::prefix('invitation')->group(function () {
+    Route::get('/verify', [App\Http\Controllers\Api\Auth\InvitationController::class, 'verify']);
+    Route::post('/accept', [App\Http\Controllers\Api\Auth\InvitationController::class, 'accept']);
+});
+
+// Test email routes (public - for testing email configuration)
+Route::get('/test-email', function (Request $request) {
+    try {
+        $toEmail = $request->query('email', env('MAIL_FROM_ADDRESS', 'peso.cabuyao19@gmail.com'));
+        
+        \Illuminate\Support\Facades\Mail::raw('This is a test email from PESO OJT Attendance System. If you received this, your email configuration is working correctly!', function ($message) use ($toEmail) {
+            $message->to($toEmail)
+                    ->subject('Test Email - PESO OJT Attendance System');
+        });
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Test email sent successfully!',
+            'sent_to' => $toEmail,
+            'from' => env('MAIL_FROM_ADDRESS'),
+        ], 200);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to send test email',
+            'error' => $e->getMessage(),
+        ], 500);
+    }
+});
+
+// Test invitation email route (public - for testing invitation email template)
+Route::get('/test-invitation-email', function (Request $request) {
+    try {
+        $toEmail = $request->query('email', env('MAIL_FROM_ADDRESS', 'peso.cabuyao19@gmail.com'));
+        $role = $request->query('role', 'intern');
+        
+        // Create a mock user object for testing
+        $mockUser = (object) [
+            'name' => 'Test User',
+            'email' => $toEmail,
+        ];
+        
+        // Generate a test invitation URL
+        $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000');
+        $testToken = 'test-token-' . \Illuminate\Support\Str::random(32);
+        $invitationUrl = "{$frontendUrl}/invitation/accept?token={$testToken}";
+        
+        \Illuminate\Support\Facades\Mail::to($toEmail)->send(
+            new App\Mail\InvitationMail($mockUser, $invitationUrl, $role)
+        );
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Test invitation email sent successfully!',
+            'sent_to' => $toEmail,
+            'role' => $role,
+            'from' => env('MAIL_FROM_ADDRESS'),
+            'note' => 'This is a test email. The invitation link will not work.',
+        ], 200);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to send test invitation email',
+            'error' => $e->getMessage(),
+        ], 500);
+    }
+});
+
 // Protected routes (require authentication)
 Route::middleware('auth:sanctum')->group(function () {
     
@@ -84,7 +153,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/recent-activity', [App\Http\Controllers\Api\Dashboard\DashboardController::class, 'recentActivity']);
     });
 
-    // Pending Registrations (Admin only)
+    // Departments
+    Route::prefix('departments')->group(function () {
+        Route::get('/', [App\Http\Controllers\Api\DepartmentsController::class, 'index']);
+    });
+
+    // Registration Requests (Admin only) - New system using RegistrationRequest model
+    Route::prefix('registration-requests')->group(function () {
+        Route::get('/', [App\Http\Controllers\Api\RegistrationRequestsController::class, 'index']);
+        Route::get('/{id}', [App\Http\Controllers\Api\RegistrationRequestsController::class, 'show']);
+        Route::post('/{id}/approve', [App\Http\Controllers\Api\RegistrationRequestsController::class, 'approve']);
+        Route::post('/{id}/reject', [App\Http\Controllers\Api\RegistrationRequestsController::class, 'reject']);
+    });
+
+    // Pending Registrations (Admin only) - Legacy system using PendingRegistration model
     Route::prefix('pending-registrations')->group(function () {
         Route::get('/', [App\Http\Controllers\Api\PendingRegistrationsController::class, 'index']);
         Route::get('/{id}', [App\Http\Controllers\Api\PendingRegistrationsController::class, 'show']);
