@@ -24,9 +24,40 @@ class AttendanceController extends BaseController
     {
         $user = $request->user();
         
+        if (!$user) {
+            return $this->unauthorized('User not authenticated');
+        }
+        
+        // Refresh user to ensure role is loaded correctly
+        $user->refresh();
+        
+        // Get raw role value from database for debugging
+        $rawRole = $user->getRawOriginal('role') ?? $user->getAttribute('role');
+        
         // Only intern and GIP can clock in
-        if (!$user->isInternOrGip()) {
-            return $this->forbidden('Only interns and GIP can clock in');
+        // Check both enum comparison and raw string comparison as fallback
+        $isAllowed = false;
+        if ($user->role instanceof \App\Enums\UserRole) {
+            $isAllowed = $user->isInternOrGip();
+        } else {
+            // Fallback: check raw string value if enum casting failed
+            $isAllowed = in_array(strtolower($rawRole), ['intern', 'gip'], true);
+        }
+        
+        if (!$isAllowed) {
+            // Debug: Get the actual role value for troubleshooting
+            $actualRole = 'unknown';
+            if ($user->role instanceof \App\Enums\UserRole) {
+                $actualRole = $user->role->value;
+            } elseif (is_string($rawRole)) {
+                $actualRole = $rawRole;
+            } elseif (is_null($rawRole)) {
+                $actualRole = 'null';
+            }
+            
+            return $this->forbidden(
+                "Only interns and GIP can clock in. Your current role is: '{$actualRole}'. Please contact an administrator if this is incorrect."
+            );
         }
 
         // Get intern profile
@@ -163,9 +194,40 @@ class AttendanceController extends BaseController
     {
         $user = $request->user();
         
+        if (!$user) {
+            return $this->unauthorized('User not authenticated');
+        }
+        
+        // Refresh user to ensure role is loaded correctly
+        $user->refresh();
+        
+        // Get raw role value from database for debugging
+        $rawRole = $user->getRawOriginal('role') ?? $user->getAttribute('role');
+        
         // Only intern and GIP can clock out
-        if (!$user->isInternOrGip()) {
-            return $this->forbidden('Only interns and GIP can clock out');
+        // Check both enum comparison and raw string comparison as fallback
+        $isAllowed = false;
+        if ($user->role instanceof \App\Enums\UserRole) {
+            $isAllowed = $user->isInternOrGip();
+        } else {
+            // Fallback: check raw string value if enum casting failed
+            $isAllowed = in_array(strtolower($rawRole), ['intern', 'gip'], true);
+        }
+        
+        if (!$isAllowed) {
+            // Debug: Get the actual role value for troubleshooting
+            $actualRole = 'unknown';
+            if ($user->role instanceof \App\Enums\UserRole) {
+                $actualRole = $user->role->value;
+            } elseif (is_string($rawRole)) {
+                $actualRole = $rawRole;
+            } elseif (is_null($rawRole)) {
+                $actualRole = 'null';
+            }
+            
+            return $this->forbidden(
+                "Only interns and GIP can clock out. Your current role is: '{$actualRole}'. Please contact an administrator if this is incorrect."
+            );
         }
 
         // Get intern profile
