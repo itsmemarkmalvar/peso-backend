@@ -11,7 +11,7 @@ trait HasRoles
      */
     public function hasRole(UserRole $role): bool
     {
-        return $this->role === $role->value;
+        return $this->role === $role;
     }
 
     /**

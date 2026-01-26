@@ -256,6 +256,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', [App\Http\Controllers\Api\DepartmentsController::class, 'index']);
     });
 
+    // Geofence Locations
+    Route::prefix('geofence-locations')->group(function () {
+        Route::get('/', [App\Http\Controllers\Api\GeofenceLocationsController::class, 'index']);
+        Route::get('/{id}', [App\Http\Controllers\Api\GeofenceLocationsController::class, 'show']);
+        Route::post('/', [App\Http\Controllers\Api\GeofenceLocationsController::class, 'store']);
+        Route::put('/{id}', [App\Http\Controllers\Api\GeofenceLocationsController::class, 'update']);
+        Route::delete('/{id}', [App\Http\Controllers\Api\GeofenceLocationsController::class, 'destroy']);
+    });
+
     // Registration Requests (Admin only) - New system using RegistrationRequest model
     Route::prefix('registration-requests')->group(function () {
         Route::get('/', [App\Http\Controllers\Api\RegistrationRequestsController::class, 'index']);
