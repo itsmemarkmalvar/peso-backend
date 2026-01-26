@@ -5,12 +5,13 @@
 
 ## 🎭 Role Hierarchy & Overview
 
-### Current Roles (3 roles):
+### Current Roles (4 roles):
 1. **ADMIN** - Full system access, user management, system configuration
-2. **COORDINATOR** - Combined Coordinator/Supervisor role: Oversees all interns, manages schedules, approves/rejects attendance, can be assigned to specific interns
-3. **INTERN** - Clock in/out, view own attendance, submit timesheets
+2. **SUPERVISOR** - Oversees interns, manages schedules, approves/rejects attendance, can be assigned to specific interns
+3. **GIP** - Government Internship Program participant - Same restrictions as Intern
+4. **INTERN** - Clock in/out, view own attendance, submit timesheets
 
-**Note:** COORDINATOR and SUPERVISOR roles have been combined. Coordinators have full access to all interns but can optionally be assigned to specific interns for workflow purposes.
+**Note:** GIP has the same restrictions and capabilities as INTERN. Both roles can only access their own data and cannot view other users' information.
 
 ---
 
@@ -22,46 +23,46 @@
 - 🔒 **No Access** - Cannot access this feature
 - ⚠️ **Conditional** - Access depends on ownership/assignment
 
-| Feature | ADMIN | COORDINATOR | INTERN |
-|---------|-------|-------------|--------|
+| Feature | ADMIN | SUPERVISOR | GIP | INTERN |
+|---------|-------|------------|-----|-------|
 | **User Management** |
-| Create users | ✅ | ⚠️ (interns only) | 🔒 |
-| View all users | ✅ | ✅ | 🔒 |
-| Edit users | ✅ | ⚠️ (interns only) | 👁️ (own profile) |
-| Delete users | ✅ | ⚠️ (interns only) | 🔒 |
-| Suspend/Activate users | ✅ | ✅ | 🔒 |
+| Create users | ✅ | ⚠️ (interns/gip only) | 🔒 | 🔒 |
+| View all users | ✅ | ✅ | 🔒 | 🔒 |
+| Edit users | ✅ | ⚠️ (interns/gip only) | 👁️ (own profile) | 👁️ (own profile) |
+| Delete users | ✅ | ⚠️ (interns/gip only) | 🔒 | 🔒 |
+| Suspend/Activate users | ✅ | ✅ | 🔒 | 🔒 |
 | **Intern Management** |
-| Create intern profiles | ✅ | ✅ | 🔒 |
-| View all interns | ✅ | ✅ | 🔒 |
-| Edit intern profiles | ✅ | ✅ | 👁️ (own profile) |
-| Delete intern profiles | ✅ | ✅ | 🔒 |
+| Create intern profiles | ✅ | ✅ | 🔒 | 🔒 |
+| View all interns | ✅ | ✅ | 🔒 | 🔒 |
+| Edit intern profiles | ✅ | ✅ | 👁️ (own profile) | 👁️ (own profile) |
+| Delete intern profiles | ✅ | ✅ | 🔒 | 🔒 |
 | **Attendance** |
-| Clock in/out | 🔒 | 🔒 | ✅ |
-| View own attendance | ✅ | ✅ | ✅ |
-| View all attendance | ✅ | ✅ | 🔒 |
-| Edit attendance | ✅ | ⚠️ (manual override) | 🔒 |
-| Delete attendance | ✅ | ⚠️ (with reason) | 🔒 |
+| Clock in/out | 🔒 | 🔒 | ✅ | ✅ |
+| View own attendance | ✅ | ✅ | ✅ | ✅ |
+| View all attendance | ✅ | ✅ | 🔒 | 🔒 |
+| Edit attendance | ✅ | ⚠️ (manual override) | 🔒 | 🔒 |
+| Delete attendance | ✅ | ⚠️ (with reason) | 🔒 | 🔒 |
 | **Approvals** |
-| Approve attendance | ✅ | ✅ | 🔒 |
-| Reject attendance | ✅ | ✅ | 🔒 |
-| View approval history | ✅ | ✅ | 👁️ (own records) |
+| Approve attendance | ✅ | ✅ | 🔒 | 🔒 |
+| Reject attendance | ✅ | ✅ | 🔒 | 🔒 |
+| View approval history | ✅ | ✅ | 👁️ (own records) | 👁️ (own records) |
 | **Schedules** |
-| Create schedules | ✅ | ✅ | 🔒 |
-| View all schedules | ✅ | ✅ | 👁️ (own schedule) |
-| Edit schedules | ✅ | ✅ | 🔒 |
-| Delete schedules | ✅ | ✅ | 🔒 |
+| Create schedules | ✅ | ✅ | 🔒 | 🔒 |
+| View all schedules | ✅ | ✅ | 👁️ (own schedule) | 👁️ (own schedule) |
+| Edit schedules | ✅ | ✅ | 🔒 | 🔒 |
+| Delete schedules | ✅ | ✅ | 🔒 | 🔒 |
 | **Reports** |
-| View all reports | ✅ | ✅ | 👁️ (own reports) |
-| Export reports | ✅ | ✅ | 👁️ (own DTR) |
+| View all reports | ✅ | ✅ | 👁️ (own reports) | 👁️ (own reports) |
+| Export reports | ✅ | ✅ | 👁️ (own DTR) | 👁️ (own DTR) |
 | **Geofence Locations** |
-| Create locations | ✅ | ✅ | 🔒 |
-| View locations | ✅ | ✅ | 👁️ (active only) |
-| Edit locations | ✅ | ✅ | 🔒 |
-| Delete locations | ✅ | ✅ | 🔒 |
+| Create locations | ✅ | ✅ | 🔒 | 🔒 |
+| View locations | ✅ | ✅ | 👁️ (active only) | 👁️ (active only) |
+| Edit locations | ✅ | ✅ | 🔒 | 🔒 |
+| Delete locations | ✅ | ✅ | 🔒 | 🔒 |
 | **System Settings** |
-| Configure system | ✅ | 🔒 | 🔒 |
-| View activity logs | ✅ | ✅ | 👁️ (own actions) |
-| Manage notifications | ✅ | ✅ | 👁️ (own notifications) |
+| Configure system | ✅ | 🔒 | 🔒 | 🔒 |
+| View activity logs | ✅ | ✅ | 👁️ (own actions) | 👁️ (own actions) |
+| Manage notifications | ✅ | ✅ | 👁️ (own notifications) | 👁️ (own notifications) |
 
 ---
 
@@ -93,8 +94,8 @@
 
 ---
 
-### 2. COORDINATOR (Combined Coordinator/Supervisor)
-**Purpose:** OJT Coordinator who oversees all interns in the program. This role combines the previous COORDINATOR and SUPERVISOR roles.
+### 2. SUPERVISOR
+**Purpose:** Supervisor who oversees interns in the program.
 
 **Capabilities:**
 - ✅ Create/edit intern profiles
@@ -132,7 +133,40 @@
 
 ---
 
-### 3. INTERN
+### 3. GIP
+**Purpose:** Government Internship Program participant who clocks in/out and tracks attendance
+
+**Capabilities:**
+- ✅ Clock in/out (with geofence verification)
+- ✅ View own attendance history
+- ✅ View own schedule
+- ✅ View own timesheets
+- ✅ View own approval status
+- ✅ View own notifications
+- ✅ Export own DTR (Daily Time Record)
+
+**Restrictions:**
+- ❌ Cannot view other users' data
+- ❌ Cannot approve/reject attendance
+- ❌ Cannot create/edit schedules
+- ❌ Cannot modify attendance records after clock in/out
+- ❌ Cannot access admin/supervisor features
+
+**Data Access:**
+- **Strictly filtered** - Only sees own data (`user_id` = authenticated user's ID)
+- Can only clock in/out for themselves
+
+**Use Cases:**
+- Daily time tracking
+- Viewing attendance history
+- Checking approval status
+- Exporting DTR for submission
+
+**Note:** GIP has the same restrictions and capabilities as INTERN.
+
+---
+
+### 4. INTERN
 **Purpose:** OJT intern who clocks in/out and tracks attendance
 
 **Capabilities:**
@@ -149,7 +183,7 @@
 - ❌ Cannot approve/reject attendance
 - ❌ Cannot create/edit schedules
 - ❌ Cannot modify attendance records after clock in/out
-- ❌ Cannot access admin/coordinator features
+- ❌ Cannot access admin/supervisor features
 
 **Data Access:**
 - **Strictly filtered** - Only sees own data (`user_id` = authenticated user's ID)
@@ -167,13 +201,13 @@
 
 ### Intern Data Filtering:
 
-1. **ADMIN & COORDINATOR:**
+1. **ADMIN & SUPERVISOR:**
    ```sql
    -- Can see ALL interns
    SELECT * FROM interns;
    ```
 
-2. **INTERN:**
+2. **GIP & INTERN:**
    ```sql
    -- Can only see own profile
    SELECT * FROM interns WHERE user_id = :user_id;
@@ -181,13 +215,13 @@
 
 ### Attendance Data Filtering:
 
-1. **ADMIN & COORDINATOR:**
+1. **ADMIN & SUPERVISOR:**
    ```sql
    -- Can see ALL attendance
    SELECT * FROM attendance;
    ```
 
-2. **INTERN:**
+2. **GIP & INTERN:**
    ```sql
    -- Can only see own attendance
    SELECT * FROM attendance 
@@ -196,11 +230,11 @@
    );
    ```
 
-### Coordinator Assignment (Optional):
-- Coordinators can be assigned to specific interns via `supervisor_user_id` in `interns` table
+### Supervisor Assignment (Optional):
+- Supervisors can be assigned to specific interns via `supervisor_user_id` in `interns` table
 - This assignment is for **organizational/workflow purposes only** (notifications, reports grouping, etc.)
-- **Assignment does NOT restrict access** - coordinators still see all interns
-- Useful for: "Show me interns assigned to coordinator X" (filtering view, not access control)
+- **Assignment does NOT restrict access** - supervisors still see all interns
+- Useful for: "Show me interns assigned to supervisor X" (filtering view, not access control)
 
 ---
 
@@ -208,20 +242,20 @@
 
 ### 1. **Role Escalation Prevention**
 - ❌ Users cannot change their own role
-- ❌ Only ADMIN can create ADMIN/COORDINATOR accounts
+- ❌ Only ADMIN can create ADMIN/SUPERVISOR accounts
 - ❌ Only ADMIN can modify role assignments
-- ❌ Interns cannot become coordinators/admins through registration
+- ❌ Interns and GIP cannot become supervisors/admins through registration
 
 ### 2. **Data Isolation**
 - ✅ Strict filtering at database query level (not just UI)
 - ✅ Middleware checks role before allowing access
 - ✅ API endpoints validate ownership before returning data
-- ✅ Interns can only access their own data
+- ✅ Interns and GIP can only access their own data
 
 ### 3. **Approval Workflow**
-- ✅ Coordinators can approve any intern
-- ✅ Admins can approve any intern
-- ✅ Self-approval should be prevented (edge case: admin/coordinator who is also intern)
+- ✅ Supervisors can approve any intern/gip
+- ✅ Admins can approve any intern/gip
+- ✅ Self-approval should be prevented (edge case: admin/supervisor who is also intern/gip)
 
 ### 4. **Activity Logging**
 - ✅ All role changes logged

@@ -19,15 +19,22 @@
                     <!-- Official Header with Logo -->
                     <tr>
                         <td style="padding: 40px 40px 30px; text-align: center; background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); border-bottom: 3px solid #1e3a8a;">
-                            <!-- PESO Logo Placeholder - Replace with hosted image URL -->
+                            <!-- PESO Logo -->
                             <table role="presentation" style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
                                 <tr>
                                     <td align="center">
-                                        <!-- PESO Logo -->
-                                        @php
-                                            $logoUrl = env('APP_URL', 'http://localhost') . '/images/image-Photoroom.png';
-                                        @endphp
-                                        <img src="{{ $logoUrl }}" alt="PESO Logo" style="width: 120px; height: auto; max-height: 120px; display: block; margin: 0 auto 20px; background-color: #ffffff; border-radius: 8px; padding: 10px;" />
+                                        @if(isset($message) && $logoPath && file_exists($logoPath))
+                                            <!-- Primary: Use embedded attachment (CID) - most reliable for email clients like Gmail -->
+                                            <img src="{{ $message->embed($logoPath) }}" alt="PESO Logo" style="width: 120px; height: auto; max-height: 120px; display: block; margin: 0 auto 20px; background-color: #ffffff; border-radius: 8px; padding: 10px;" />
+                                        @elseif($logoBase64)
+                                            <!-- Fallback: Use base64 embedded image (works in some email clients) -->
+                                            <img src="{{ $logoBase64 }}" alt="PESO Logo" style="width: 120px; height: auto; max-height: 120px; display: block; margin: 0 auto 20px; background-color: #ffffff; border-radius: 8px; padding: 10px;" />
+                                        @else
+                                            <!-- Fallback if logo cannot be loaded -->
+                                            <div style="width: 120px; height: 120px; display: block; margin: 0 auto 20px; background-color: #ffffff; border-radius: 8px; padding: 10px; border: 2px solid #e0e7ff;">
+                                                <p style="margin: 0; color: #1e40af; font-size: 14px; font-weight: 600; text-align: center; line-height: 100px;">PESO</p>
+                                            </div>
+                                        @endif
                                     </td>
                                 </tr>
                             </table>
