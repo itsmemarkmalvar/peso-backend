@@ -139,6 +139,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{id}/reject', [App\Http\Controllers\Api\Approvals\ApprovalController::class, 'reject']);
     });
 
+    // Leaves
+    Route::prefix('leaves')->group(function () {
+        Route::get('/', [App\Http\Controllers\Api\Leaves\LeaveController::class, 'index']);
+        Route::get('/pending', [App\Http\Controllers\Api\Leaves\LeaveController::class, 'pending']);
+        Route::post('/', [App\Http\Controllers\Api\Leaves\LeaveController::class, 'store']);
+        Route::post('/{id}/approve', [App\Http\Controllers\Api\Leaves\LeaveController::class, 'approve']);
+        Route::post('/{id}/reject', [App\Http\Controllers\Api\Leaves\LeaveController::class, 'reject']);
+    });
+
     // Reports
     Route::prefix('reports')->group(function () {
         Route::get('/dtr', [App\Http\Controllers\Api\Reports\ReportController::class, 'dtr']);
