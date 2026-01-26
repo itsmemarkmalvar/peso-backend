@@ -10,165 +10,123 @@
     </style>
     <![endif]-->
 </head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f8fafc;">
-    <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f8fafc; padding: 40px 20px;">
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f1f5f9;">
+    <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f1f5f9; padding: 40px 20px;">
         <tr>
             <td align="center">
-                <table role="presentation" style="max-width: 600px; width: 100%; border-collapse: collapse; background-color: #ffffff; border-radius: 0; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);">
-                    
-                    <!-- Official Header with Logo -->
+                <!-- Card container: matches register page card (rounded-xl, border, shadow) -->
+                <table role="presentation" style="max-width: 600px; width: 100%; border-collapse: collapse; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); overflow: hidden;">
+                    <!-- Top accent bar: red → red-500 → slate-900 (register card gradient) -->
                     <tr>
-                        <td style="padding: 40px 40px 30px; text-align: center; background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); border-bottom: 3px solid #1e3a8a;">
-                            <!-- PESO Logo -->
-                            <table role="presentation" style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                        <td style="height: 4px; background: linear-gradient(to right, #dc2626 0%, #ef4444 50%, #0f172a 100%); font-size: 0; line-height: 0;">&nbsp;</td>
+                    </tr>
+                    <!-- Card header + watermark row -->
+                    <tr>
+                        <td style="padding: 0;">
+                            <table role="presentation" style="width: 100%; border-collapse: collapse;">
                                 <tr>
-                                    <td align="center">
+                                    <!-- Main header content -->
+                                    <td style="padding: 32px 32px 24px 32px; vertical-align: top; width: 100%;">
+                                        <h1 style="margin: 0 0 6px; color: #0f172a; font-size: 22px; font-weight: 600; line-height: 1.3;">
+                                            Account Invitation
+                                        </h1>
+                                        <p style="margin: 0; color: #64748b; font-size: 14px; line-height: 1.5;">
+                                            Your registration has been approved. Set your password and activate your account using the link below.
+                                        </p>
+                                    </td>
+                                    <!-- Watermark: PESO logo (register-card style) -->
+                                    <td style="vertical-align: top; width: 140px; padding: 16px 24px 0 0; text-align: right;">
                                         @if(isset($message) && $logoPath && file_exists($logoPath))
-                                            <!-- Primary: Use embedded attachment (CID) - most reliable for email clients like Gmail -->
-                                            <img src="{{ $message->embed($logoPath) }}" alt="PESO Logo" style="width: 120px; height: auto; max-height: 120px; display: block; margin: 0 auto 20px; background-color: #ffffff; border-radius: 8px; padding: 10px;" />
+                                            <img src="{{ $message->embed($logoPath) }}" alt="" style="width: 160px; height: auto; max-height: 160px; opacity: 0.08; display: block; margin-left: auto;" />
                                         @elseif($logoBase64)
-                                            <!-- Fallback: Use base64 embedded image (works in some email clients) -->
-                                            <img src="{{ $logoBase64 }}" alt="PESO Logo" style="width: 120px; height: auto; max-height: 120px; display: block; margin: 0 auto 20px; background-color: #ffffff; border-radius: 8px; padding: 10px;" />
-                                        @else
-                                            <!-- Fallback if logo cannot be loaded -->
-                                            <div style="width: 120px; height: 120px; display: block; margin: 0 auto 20px; background-color: #ffffff; border-radius: 8px; padding: 10px; border: 2px solid #e0e7ff;">
-                                                <p style="margin: 0; color: #1e40af; font-size: 14px; font-weight: 600; text-align: center; line-height: 100px;">PESO</p>
-                                            </div>
+                                            <img src="{{ $logoBase64 }}" alt="" style="width: 160px; height: auto; max-height: 160px; opacity: 0.08; display: block; margin-left: auto;" />
                                         @endif
                                     </td>
                                 </tr>
                             </table>
-                            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.2;">
-                                Public Employment Service Office
-                            </h1>
-                            <p style="margin: 8px 0 0; color: #e0e7ff; font-size: 16px; font-weight: 500; letter-spacing: 0.5px;">
-                                OJT ATTENDANCE SYSTEM
-                            </p>
-                            <p style="margin: 12px 0 0; color: #c7d2fe; font-size: 14px; font-weight: 400;">
-                                City of Cabuyao
-                            </p>
                         </td>
                     </tr>
-                    
-                    <!-- Content Section -->
+                    <!-- Content -->
                     <tr>
-                        <td style="padding: 50px 40px;">
-                            <!-- Formal Greeting -->
-                            <p style="margin: 0 0 24px; color: #1e293b; font-size: 18px; font-weight: 600; line-height: 1.5;">
+                        <td style="padding: 0 32px 32px;">
+                            <p style="margin: 0 0 20px; color: #0f172a; font-size: 16px; font-weight: 500; line-height: 1.5;">
                                 Dear {{ $user->name }},
                             </p>
-                            
-                            <!-- Main Message -->
-                            <p style="margin: 0 0 20px; color: #334155; font-size: 16px; line-height: 1.7; text-align: justify;">
-                                We are pleased to inform you that your registration request for the <strong>PESO OJT Attendance System</strong> has been reviewed and <strong>approved</strong> by the system administrator.
+                            <p style="margin: 0 0 16px; color: #334155; font-size: 15px; line-height: 1.6;">
+                                Your registration request for the <strong>PESO OJT Attendance System</strong> has been reviewed and <strong>approved</strong>. Your account has been created with the following role:
                             </p>
-                            
-                            <p style="margin: 0 0 20px; color: #334155; font-size: 16px; line-height: 1.7; text-align: justify;">
-                                Your account has been created with the following role assignment:
-                            </p>
-                            
-                            <!-- Role Badge -->
-                            <table role="presentation" style="width: 100%; border-collapse: collapse; margin: 24px 0 32px;">
+                            <!-- Role badge: red/slate accent -->
+                            <table role="presentation" style="width: 100%; border-collapse: collapse; margin: 20px 0 24px;">
                                 <tr>
-                                    <td align="center">
-                                        <table role="presentation" style="border-collapse: collapse;">
-                                            <tr>
-                                                <td style="background-color: #eff6ff; border: 2px solid #3b82f6; border-radius: 6px; padding: 12px 24px;">
-                                                    <p style="margin: 0; color: #1e40af; font-size: 16px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
-                                                        {{ ucfirst($role) }}
-                                                    </p>
-                                                </td>
-                                            </tr>
-                                        </table>
+                                    <td>
+                                        <span style="display: inline-block; background-color: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 20px; border-radius: 8px;">
+                                            {{ ucfirst($role) }}
+                                        </span>
                                     </td>
                                 </tr>
                             </table>
-                            
-                            <p style="margin: 0 0 32px; color: #334155; font-size: 16px; line-height: 1.7; text-align: justify;">
-                                To complete your account setup and activate your access to the system, please accept this invitation and establish your account password by clicking the button below:
+                            <p style="margin: 0 0 24px; color: #334155; font-size: 15px; line-height: 1.6;">
+                                To complete setup and activate your access, click the button below to accept this invitation and set your password:
                             </p>
-                            
-                            <!-- Primary CTA Button -->
-                            <table role="presentation" style="width: 100%; border-collapse: collapse; margin: 32px 0 40px;">
+                            <!-- CTA: red button (register page style) -->
+                            <table role="presentation" style="width: 100%; border-collapse: collapse; margin: 0 0 28px;">
                                 <tr>
-                                    <td align="center">
-                                        <a href="{{ $invitationUrl }}" style="display: inline-block; padding: 16px 40px; background-color: #1e40af; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px; text-align: center; letter-spacing: 0.3px; box-shadow: 0 4px 6px rgba(30, 64, 175, 0.25); transition: background-color 0.2s;">
+                                    <td>
+                                        <a href="{{ $invitationUrl }}" style="display: inline-block; padding: 14px 32px; background-color: #dc2626; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; text-align: center; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);">
                                             Accept Invitation & Set Password
                                         </a>
                                     </td>
                                 </tr>
                             </table>
-                            
-                            <!-- Alternative Link Section -->
-                            <table role="presentation" style="width: 100%; border-collapse: collapse; margin: 32px 0 0; background-color: #f8fafc; border-left: 4px solid #3b82f6; border-radius: 4px;">
+                            <!-- Alternative link: red left border -->
+                            <table role="presentation" style="width: 100%; border-collapse: collapse; margin: 0 0 24px; background-color: #f8fafc; border-left: 4px solid #dc2626; border-radius: 4px;">
                                 <tr>
-                                    <td style="padding: 20px;">
-                                        <p style="margin: 0 0 12px; color: #475569; font-size: 14px; font-weight: 500; line-height: 1.6;">
-                                            Alternative Access Method:
+                                    <td style="padding: 16px;">
+                                        <p style="margin: 0 0 8px; color: #475569; font-size: 13px; font-weight: 500;">
+                                            If the button doesn’t work, copy and paste this link into your browser:
                                         </p>
-                                        <p style="margin: 0; color: #64748b; font-size: 13px; line-height: 1.6;">
-                                            If the button above does not function properly, please copy and paste the following link into your web browser's address bar:
-                                        </p>
-                                        <p style="margin: 12px 0 0; padding: 12px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 4px; word-break: break-all;">
-                                            <a href="{{ $invitationUrl }}" style="color: #1e40af; text-decoration: none; font-size: 13px; font-family: 'Courier New', monospace;">{{ $invitationUrl }}</a>
+                                        <p style="margin: 0; word-break: break-all;">
+                                            <a href="{{ $invitationUrl }}" style="color: #dc2626; text-decoration: none; font-size: 12px; font-family: 'Courier New', monospace;">{{ $invitationUrl }}</a>
                                         </p>
                                     </td>
                                 </tr>
                             </table>
-                            
-                            <!-- Important Notice -->
-                            <table role="presentation" style="width: 100%; border-collapse: collapse; margin: 32px 0 0;">
+                            <!-- Important notice -->
+                            <table role="presentation" style="width: 100%; border-collapse: collapse; margin: 0 0 24px;">
                                 <tr>
-                                    <td style="padding: 20px; background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px;">
-                                        <p style="margin: 0 0 8px; color: #92400e; font-size: 14px; font-weight: 600; line-height: 1.6;">
-                                            ⚠️ Important Notice:
-                                        </p>
-                                        <p style="margin: 0; color: #78350f; font-size: 13px; line-height: 1.6;">
-                                            This invitation link will expire in <strong>7 days</strong> from the date of issuance. If you did not request this invitation or believe this email was sent in error, please disregard this message and contact the system administrator immediately.
+                                    <td style="padding: 16px; background-color: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 4px;">
+                                        <p style="margin: 0 0 4px; color: #92400e; font-size: 13px; font-weight: 600;">Important</p>
+                                        <p style="margin: 0; color: #78350f; font-size: 13px; line-height: 1.5;">
+                                            This link expires in <strong>7 days</strong>. If you didn’t request this, disregard this email and contact the administrator.
                                         </p>
                                     </td>
                                 </tr>
                             </table>
-                            
-                            <!-- Closing -->
-                            <p style="margin: 32px 0 0; color: #334155; font-size: 16px; line-height: 1.7;">
+                            <p style="margin: 0 0 8px; color: #334155; font-size: 15px; line-height: 1.6;">
                                 We look forward to your participation in the PESO OJT Attendance System.
                             </p>
-                            
-                            <p style="margin: 24px 0 0; color: #334155; font-size: 16px; line-height: 1.7;">
+                            <p style="margin: 0; color: #334155; font-size: 15px; line-height: 1.6;">
                                 Respectfully yours,<br>
-                                <strong style="color: #1e40af;">PESO Cabuyao City</strong><br>
+                                <strong style="color: #0f172a;">PESO Cabuyao City</strong><br>
                                 <span style="color: #64748b; font-size: 14px;">System Administration</span>
                             </p>
                         </td>
                     </tr>
-                    
-                    <!-- Official Footer -->
+                    <!-- Footer: card-style (Official use only, support email) -->
                     <tr>
-                        <td style="padding: 40px; background-color: #1e293b; border-top: 3px solid #0f172a;">
-                            <table role="presentation" style="width: 100%; border-collapse: collapse;">
-                                <tr>
-                                    <td align="center" style="padding-bottom: 20px;">
-                                        <p style="margin: 0 0 8px; color: #ffffff; font-size: 16px; font-weight: 600;">
-                                            Public Employment Service Office
-                                        </p>
-                                        <p style="margin: 0; color: #cbd5e1; font-size: 14px;">
-                                            City of Cabuyao, Laguna
-                                        </p>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 20px 0; border-top: 1px solid #334155;">
-                                        <p style="margin: 0 0 12px; color: #94a3b8; font-size: 12px; text-align: center; line-height: 1.6;">
-                                            © {{ date('Y') }} Public Employment Service Office - Cabuyao City. All rights reserved.
-                                        </p>
-                                        <p style="margin: 0; color: #64748b; font-size: 11px; text-align: center; line-height: 1.6; font-style: italic;">
-                                            This is an automated system-generated message. Please do not reply directly to this email.<br>
-                                            For inquiries or technical support, please contact the PESO office directly.
-                                        </p>
-                                    </td>
-                                </tr>
-                            </table>
+                        <td style="padding: 20px 32px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; border-radius: 0 0 12px 12px;">
+                            <p style="margin: 0 0 8px; color: #64748b; font-size: 12px; text-align: center; line-height: 1.5;">
+                                Official use only. Accounts are activated after you accept this invitation.
+                            </p>
+                            <p style="margin: 0 0 8px; color: #64748b; font-size: 12px; text-align: center; line-height: 1.5;">
+                                Need help? Email <a href="mailto:pesocabuyaocity@gmail.com?subject=PESO%20OJT%20Attendance%20-%20Invitation%20Support" style="color: #dc2626; font-weight: 600; text-decoration: none;">pesocabuyaocity@gmail.com</a>.
+                            </p>
+                            <p style="margin: 0; color: #94a3b8; font-size: 11px; text-align: center; line-height: 1.5; font-style: italic;">
+                                This is an automated message. Please do not reply directly to this email.
+                            </p>
+                            <p style="margin: 8px 0 0; color: #94a3b8; font-size: 11px; text-align: center;">
+                                © {{ date('Y') }} Public Employment Service Office — City of Cabuyao
+                            </p>
                         </td>
                     </tr>
                 </table>
