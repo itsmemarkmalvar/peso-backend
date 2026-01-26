@@ -42,4 +42,20 @@ class Intern extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    /**
+     * Get schedules for this intern
+     */
+    public function schedules()
+    {
+        return $this->hasMany(Schedule::class);
+    }
+
+    /**
+     * Get attendance records for this intern
+     */
+    public function attendance()
+    {
+        return $this->hasMany(Attendance::class);
+    }
 }

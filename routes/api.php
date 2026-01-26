@@ -245,6 +245,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/export', [App\Http\Controllers\Api\Reports\ReportController::class, 'export']);
     });
 
+    // Timesheets
+    Route::prefix('timesheets')->group(function () {
+        Route::get('/', [App\Http\Controllers\Api\TimesheetsController::class, 'index']);
+        Route::get('/{intern_id}', [App\Http\Controllers\Api\TimesheetsController::class, 'show']);
+    });
+
     // Dashboard
     Route::prefix('dashboard')->group(function () {
         Route::get('/stats', [App\Http\Controllers\Api\Dashboard\DashboardController::class, 'stats']);
