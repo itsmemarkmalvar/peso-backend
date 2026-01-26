@@ -58,4 +58,12 @@ class Intern extends Model
     {
         return $this->hasMany(Attendance::class);
     }
+
+    /**
+     * Get school schedules for this intern
+     */
+    public function schoolSchedules()
+    {
+        return $this->hasMany(SchoolSchedule::class);
+    }
 }
