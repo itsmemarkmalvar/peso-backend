@@ -12,17 +12,11 @@ class SchoolSchedule extends Model
     protected $fillable = [
         'intern_id',
         'day_of_week',
-        'start_time',
-        'end_time',
-        'subject',
-        'room',
         'is_active',
     ];
 
     protected $casts = [
         'day_of_week' => 'integer',
-        'start_time' => 'string',
-        'end_time' => 'string',
         'is_active' => 'boolean',
     ];
 

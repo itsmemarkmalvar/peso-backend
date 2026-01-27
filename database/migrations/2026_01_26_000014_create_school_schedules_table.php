@@ -20,15 +20,11 @@ return new class extends Migration
 
             // 0 = Sunday ... 6 = Saturday
             $table->unsignedTinyInteger('day_of_week')->index();
-            $table->time('start_time');
-            $table->time('end_time');
-            $table->string('subject')->nullable();
-            $table->string('room')->nullable();
             $table->boolean('is_active')->default(true)->index();
 
             $table->timestamps();
 
-            $table->unique(['intern_id', 'day_of_week', 'start_time']);
+            $table->unique(['intern_id', 'day_of_week']);
         });
     }
 

@@ -147,27 +147,13 @@ class ScheduleController extends BaseController
                 $query->where('day_of_week', $dayOfWeek)
                     ->where('is_active', true);
             })
-            ->with(['schoolSchedules' => function ($query) use ($dayOfWeek) {
-                $query->where('day_of_week', $dayOfWeek)
-                    ->where('is_active', true);
-            }])
             ->get()
             ->map(function (Intern $intern) {
-                $schoolSchedule = $intern->schoolSchedules->first();
                 return [
                     'id' => $intern->id,
                     'name' => $intern->full_name,
                     'student_id' => $intern->student_id,
                     'course' => $intern->course,
-                    'class_time' => $schoolSchedule 
-                        ? sprintf(
-                            '%s - %s',
-                            \Carbon\Carbon::createFromFormat('H:i:s', $schoolSchedule->start_time)->format('g:i A'),
-                            \Carbon\Carbon::createFromFormat('H:i:s', $schoolSchedule->end_time)->format('g:i A')
-                        )
-                        : null,
-                    'subject' => $schoolSchedule->subject ?? null,
-                    'room' => $schoolSchedule->room ?? null,
                 ];
             })
             ->values();
