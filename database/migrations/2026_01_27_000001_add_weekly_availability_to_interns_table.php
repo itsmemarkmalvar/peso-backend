@@ -8,12 +8,15 @@ return new class extends Migration
 {
     /**
      * Run the migrations.
+     * Add weekly_availability only if missing (idempotent; safe if 2026_01_26_000014 already ran).
      */
     public function up(): void
     {
-        Schema::table('interns', function (Blueprint $table) {
-            $table->json('weekly_availability')->nullable()->after('required_hours');
-        });
+        if (! Schema::hasColumn('interns', 'weekly_availability')) {
+            Schema::table('interns', function (Blueprint $table) {
+                $table->json('weekly_availability')->nullable()->after('required_hours');
+            });
+        }
     }
 
     /**
@@ -21,8 +24,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('interns', function (Blueprint $table) {
-            $table->dropColumn('weekly_availability');
-        });
+        if (Schema::hasColumn('interns', 'weekly_availability')) {
+            Schema::table('interns', function (Blueprint $table) {
+                $table->dropColumn('weekly_availability');
+            });
+        }
     }
 };
