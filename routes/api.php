@@ -263,6 +263,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', [App\Http\Controllers\Api\DepartmentsController::class, 'index']);
     });
 
+    // Settings (GET: any auth; PUT: admin only, enforced in controller)
+    Route::prefix('settings')->group(function () {
+        Route::get('/', [App\Http\Controllers\Api\SettingsController::class, 'index']);
+        Route::put('/', [App\Http\Controllers\Api\SettingsController::class, 'update']);
+    });
+
     // Geofence Locations
     Route::prefix('geofence-locations')->group(function () {
         Route::get('/', [App\Http\Controllers\Api\GeofenceLocationsController::class, 'index']);

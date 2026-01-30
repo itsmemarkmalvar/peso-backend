@@ -9,6 +9,7 @@ use App\Models\Attendance;
 use App\Models\GeofenceLocation;
 use App\Models\Intern;
 use App\Models\Schedule;
+use App\Models\SystemSetting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -66,14 +67,14 @@ class AttendanceController extends BaseController
             return $this->notFound('Intern profile not found');
         }
 
-        // Validate request
-        $validator = Validator::make($request->all(), [
-            'location_lat' => 'required|numeric|between:-90,90',
-            'location_lng' => 'required|numeric|between:-180,180',
-            'photo' => 'required|string', // base64 encoded image
+        $settings = SystemSetting::get();
+        $rules = [
+            'location_lat' => ($settings->verification_gps ? 'required' : 'nullable') . '|numeric|between:-90,90',
+            'location_lng' => ($settings->verification_gps ? 'required' : 'nullable') . '|numeric|between:-180,180',
+            'photo' => ($settings->verification_selfie ? 'required' : 'nullable') . '|string',
             'geofence_location_id' => 'nullable|exists:geofence_locations,id',
-        ]);
-
+        ];
+        $validator = Validator::make($request->all(), $rules);
         if ($validator->fails()) {
             return $this->validationError($validator->errors());
         }
@@ -113,14 +114,20 @@ class AttendanceController extends BaseController
             }
         }
 
-        // Get reverse geocoded address
-        $locationAddress = $this->getAddressFromCoordinates(
-            $request->location_lat,
-            $request->location_lng
-        );
+        // Get reverse geocoded address (when GPS verification is enabled)
+        $locationAddress = null;
+        if ($request->location_lat !== null && $request->location_lng !== null) {
+            $locationAddress = $this->getAddressFromCoordinates(
+                $request->location_lat,
+                $request->location_lng
+            );
+        }
 
-        // Save photo
-        $photoPath = $this->saveBase64Image($request->photo, 'clock-in');
+        // Save photo when selfie verification is enabled
+        $photoPath = null;
+        if (!empty($request->photo)) {
+            $photoPath = $this->saveBase64Image($request->photo, 'clock-in');
+        }
 
         // Get today's schedule
         $dayOfWeek = now()->dayOfWeek;
@@ -132,10 +139,10 @@ class AttendanceController extends BaseController
         $clockInTime = now();
         $isLate = false;
 
-        // Check if late based on schedule
+        // Check if late based on schedule (grace period from system settings)
         if ($schedule) {
             $scheduledStart = now()->setTimeFromTimeString($schedule->start_time);
-            $isLate = $clockInTime->gt($scheduledStart->addMinutes(15)); // 15 minute grace period
+            $isLate = $clockInTime->gt($scheduledStart->addMinutes($settings->grace_period_minutes));
         }
 
         try {
@@ -236,14 +243,14 @@ class AttendanceController extends BaseController
             return $this->notFound('Intern profile not found');
         }
 
-        // Validate request
-        $validator = Validator::make($request->all(), [
-            'location_lat' => 'required|numeric|between:-90,90',
-            'location_lng' => 'required|numeric|between:-180,180',
-            'photo' => 'required|string', // base64 encoded image
+        $settings = SystemSetting::get();
+        $rules = [
+            'location_lat' => ($settings->verification_gps ? 'required' : 'nullable') . '|numeric|between:-90,90',
+            'location_lng' => ($settings->verification_gps ? 'required' : 'nullable') . '|numeric|between:-180,180',
+            'photo' => ($settings->verification_selfie ? 'required' : 'nullable') . '|string',
             'geofence_location_id' => 'nullable|exists:geofence_locations,id',
-        ]);
-
+        ];
+        $validator = Validator::make($request->all(), $rules);
         if ($validator->fails()) {
             return $this->validationError($validator->errors());
         }
@@ -287,14 +294,20 @@ class AttendanceController extends BaseController
             }
         }
 
-        // Get reverse geocoded address
-        $locationAddress = $this->getAddressFromCoordinates(
-            $request->location_lat,
-            $request->location_lng
-        );
+        // Get reverse geocoded address (when GPS verification is enabled)
+        $locationAddress = null;
+        if ($request->location_lat !== null && $request->location_lng !== null) {
+            $locationAddress = $this->getAddressFromCoordinates(
+                $request->location_lat,
+                $request->location_lng
+            );
+        }
 
-        // Save photo
-        $photoPath = $this->saveBase64Image($request->photo, 'clock-out');
+        // Save photo when selfie verification is enabled
+        $photoPath = null;
+        if (!empty($request->photo)) {
+            $photoPath = $this->saveBase64Image($request->photo, 'clock-out');
+        }
 
         // Calculate total hours
         $clockOutTime = now();
@@ -318,7 +331,7 @@ class AttendanceController extends BaseController
         $isUndertime = false;
         $isOvertime = false;
 
-        // Check undertime/overtime based on schedule
+        // Check undertime/overtime based on schedule (30 min tolerance for overtime)
         if ($schedule) {
             $scheduledStart = now()->setTimeFromTimeString($schedule->start_time);
             $scheduledEnd = now()->setTimeFromTimeString($schedule->end_time);
@@ -328,9 +341,9 @@ class AttendanceController extends BaseController
                 $scheduledHours -= ($schedule->break_duration / 60);
             }
 
-            if ($totalHours < $scheduledHours - 0.5) { // 30 minute tolerance
+            if ($totalHours < $scheduledHours - 0.5) { // 30 minute undertime tolerance
                 $isUndertime = true;
-            } elseif ($totalHours > $scheduledHours + 0.5) {
+            } elseif ($totalHours > $scheduledHours + 0.5) { // 30 minute overtime threshold
                 $isOvertime = true;
             }
         }
