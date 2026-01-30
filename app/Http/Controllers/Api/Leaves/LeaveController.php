@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Leaves;
 use App\Http\Controllers\Api\BaseController;
 use App\Models\Intern;
 use App\Models\Leave;
+use App\Models\Notification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -135,6 +136,7 @@ class LeaveController extends BaseController
         }
 
         $leave->save();
+        $this->notifyIntern($leave, 'approved');
 
         return $this->success($this->formatLeave($leave), 'Leave request approved.');
     }
@@ -166,7 +168,41 @@ class LeaveController extends BaseController
         }
 
         $leave->save();
+        $this->notifyIntern($leave, 'rejected');
 
         return $this->success($this->formatLeave($leave), 'Leave request rejected.');
+    }
+
+    private function notifyIntern(Leave $leave, string $status): void
+    {
+        $intern = $leave->intern;
+        $userId = $intern?->user_id;
+
+        if (!$userId) {
+            return;
+        }
+
+        $statusLabel = $status === 'approved' ? 'Approved' : 'Rejected';
+        $title = "Leave request {$statusLabel}";
+        $message = $status === 'approved'
+            ? "Your leave request for {$leave->reason_title} was approved."
+            : "Your leave request for {$leave->reason_title} was rejected.";
+
+        Notification::create([
+            'user_id' => $userId,
+            'type' => 'leave_request_update',
+            'title' => $title,
+            'message' => $message,
+            'data' => [
+                'leave_id' => $leave->id,
+                'status' => $status,
+                'reason_title' => $leave->reason_title,
+                'start_date' => optional($leave->start_date)->toDateString(),
+                'end_date' => optional($leave->end_date)->toDateString(),
+                'notes' => $leave->notes,
+                'rejection_reason' => $leave->rejection_reason,
+            ],
+            'is_read' => false,
+        ]);
     }
 }

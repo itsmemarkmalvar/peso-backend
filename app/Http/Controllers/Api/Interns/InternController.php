@@ -23,6 +23,7 @@ class InternController extends BaseController
             'required_hours' => $intern->required_hours === null
                 ? null
                 : (int) $intern->required_hours,
+            'weekly_availability' => $intern->weekly_availability,
             'start_date' => optional($intern->start_date)->toDateString(),
             'end_date' => optional($intern->end_date)->toDateString(),
             'onboarded_at' => optional($intern->onboarded_at)->toISOString(),
@@ -96,6 +97,20 @@ class InternController extends BaseController
             'emergency_contact_name' => 'required|string|max:255',
             'emergency_contact_phone' => 'required|string|max:50',
             'required_hours' => 'required|integer|min:1',
+            'weekly_availability' => 'required|array',
+<<<<<<< Updated upstream
+            'weekly_availability.monday' => 'required|string|in:available,not_available',
+            'weekly_availability.tuesday' => 'required|string|in:available,not_available',
+            'weekly_availability.wednesday' => 'required|string|in:available,not_available',
+            'weekly_availability.thursday' => 'required|string|in:available,not_available',
+            'weekly_availability.friday' => 'required|string|in:available,not_available',
+=======
+            'weekly_availability.monday' => 'required|string|in:full_day,half_day,not_available',
+            'weekly_availability.tuesday' => 'required|string|in:full_day,half_day,not_available',
+            'weekly_availability.wednesday' => 'required|string|in:full_day,half_day,not_available',
+            'weekly_availability.thursday' => 'required|string|in:full_day,half_day,not_available',
+            'weekly_availability.friday' => 'required|string|in:full_day,half_day,not_available',
+>>>>>>> Stashed changes
         ]);
 
         $user = $request->user();
@@ -111,6 +126,7 @@ class InternController extends BaseController
                 'emergency_contact_name' => $validated['emergency_contact_name'],
                 'emergency_contact_phone' => $validated['emergency_contact_phone'],
                 'required_hours' => $validated['required_hours'],
+                'weekly_availability' => $validated['weekly_availability'],
                 'onboarded_at' => now(),
                 'is_active' => true,
             ]
