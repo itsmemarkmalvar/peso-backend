@@ -263,6 +263,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', [App\Http\Controllers\Api\DepartmentsController::class, 'index']);
     });
 
+    // Notifications
+    Route::prefix('notifications')->group(function () {
+        Route::get('/', [App\Http\Controllers\Api\NotificationsController::class, 'index']);
+        Route::post('/{id}/read', [App\Http\Controllers\Api\NotificationsController::class, 'markRead']);
+        Route::post('/{id}/respond', [App\Http\Controllers\Api\NotificationsController::class, 'respond']);
+    });
+
     // Geofence Locations
     Route::prefix('geofence-locations')->group(function () {
         Route::get('/', [App\Http\Controllers\Api\GeofenceLocationsController::class, 'index']);

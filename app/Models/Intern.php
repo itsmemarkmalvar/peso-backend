@@ -20,6 +20,7 @@ class Intern extends Model
         'emergency_contact_name',
         'emergency_contact_phone',
         'required_hours',
+        'weekly_availability',
         'company_name',
         'supervisor_name',
         'supervisor_email',
@@ -35,6 +36,7 @@ class Intern extends Model
         'end_date' => 'date',
         'is_active' => 'boolean',
         'required_hours' => 'integer',
+        'weekly_availability' => 'array',
         'onboarded_at' => 'datetime',
     ];
 

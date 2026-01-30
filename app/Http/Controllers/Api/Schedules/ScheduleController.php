@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Schedules;
 
 use App\Http\Controllers\Api\BaseController;
 use App\Models\Intern;
+use App\Models\Notification;
 use App\Models\Schedule;
 use App\Models\SchoolSchedule;
 use Illuminate\Http\JsonResponse;
@@ -59,6 +60,7 @@ class ScheduleController extends BaseController
             'days.*.end_time' => 'required|date_format:H:i|after:days.*.start_time',
             'lunch_break_start' => 'required|date_format:H:i',
             'lunch_break_end' => 'required|date_format:H:i|after:lunch_break_start',
+            'admin_notes' => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
@@ -68,6 +70,7 @@ class ScheduleController extends BaseController
         $days = $request->input('days');
         $lunchBreakStart = $request->input('lunch_break_start');
         $lunchBreakEnd = $request->input('lunch_break_end');
+        $adminNotes = $request->input('admin_notes');
 
         // Calculate break duration in minutes
         $breakStart = \Carbon\Carbon::createFromFormat('H:i', $lunchBreakStart);
@@ -82,6 +85,7 @@ class ScheduleController extends BaseController
 
             $schedulesCreated = 0;
             $schedulesUpdated = 0;
+            $notificationsCreated = 0;
 
             foreach ($interns as $intern) {
                 foreach ($days as $dayData) {
@@ -103,6 +107,29 @@ class ScheduleController extends BaseController
                     } else {
                         $schedulesUpdated++;
                     }
+
+                    $dayOfWeek = (int) $dayData['day_of_week'];
+                    $isWeekend = $dayOfWeek === 6 || $dayOfWeek === 0;
+                    $isNewOrReactivated =
+                        $schedule->wasRecentlyCreated || $schedule->wasChanged('is_active');
+
+                    if ($isWeekend && $isNewOrReactivated && $intern->user_id) {
+                        $dayLabel = $dayOfWeek === 6 ? 'Saturday' : 'Sunday';
+                        Notification::create([
+                            'user_id' => $intern->user_id,
+                            'type' => 'schedule_availability_request',
+                            'title' => "{$dayLabel} availability confirmation",
+                            'message' => "{$dayLabel} has been added as a working day. Please confirm your availability.",
+                            'data' => [
+                                'day_of_week' => $dayOfWeek,
+                                'day_label' => $dayLabel,
+                                'start_time' => $dayData['start_time'],
+                                'end_time' => $dayData['end_time'],
+                                'admin_notes' => $adminNotes,
+                            ],
+                        ]);
+                        $notificationsCreated++;
+                    }
                 }
             }
 
@@ -112,6 +139,7 @@ class ScheduleController extends BaseController
                 'schedules_created' => $schedulesCreated,
                 'schedules_updated' => $schedulesUpdated,
                 'interns_affected' => $interns->count(),
+                'notifications_created' => $notificationsCreated,
             ], 'Default schedule assigned to all active interns');
         } catch (\Exception $e) {
             DB::rollBack();
