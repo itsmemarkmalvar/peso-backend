@@ -199,12 +199,21 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/{id}', [App\Http\Controllers\Api\Interns\InternController::class, 'destroy']);
     });
 
+    // Intern Dashboard
+    Route::prefix('intern')->group(function () {
+        Route::get('/dashboard', [App\Http\Controllers\Api\Interns\InternDashboardController::class, 'dashboard']);
+        Route::get('/time-clock', [App\Http\Controllers\Api\Interns\InternDashboardController::class, 'timeClock']);
+    });
+
     // Attendance
     Route::prefix('attendance')->group(function () {
         Route::post('/clock-in', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'clockIn']);
         Route::post('/clock-out', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'clockOut']);
+        Route::post('/break-start', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'breakStart']);
+        Route::post('/break-end', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'breakEnd']);
         Route::get('/', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'index']);
         Route::get('/today', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'today']);
+        Route::get('/today-all', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'todayAll']);
         Route::get('/history', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'history']);
         Route::get('/{id}', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'show']);
         Route::put('/{id}', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'update']);

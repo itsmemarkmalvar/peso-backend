@@ -143,8 +143,19 @@ class TimesheetsController extends BaseController
             ->orderBy('date', 'desc')
             ->get();
 
-        // Format attendance records
-        $records = $attendances->map(function ($attendance) {
+        // Format attendance records - display times in Asia/Manila
+        // Legacy: records before 2026-01-30 may have been stored as UTC; convert for display
+        $manilaCutoff = Carbon::parse('2026-01-30', 'Asia/Manila');
+        $formatTimeManila = function ($raw, $attendance) use ($manilaCutoff) {
+            if (!$raw) return null;
+            $date = $attendance->date;
+            $isLegacyUtc = $date && Carbon::parse($date->format('Y-m-d'), 'Asia/Manila')->lt($manilaCutoff);
+            $carbon = $isLegacyUtc
+                ? Carbon::parse($raw, 'UTC')->setTimezone('Asia/Manila')
+                : Carbon::parse($raw, 'Asia/Manila');
+            return $carbon->format('g:i A');
+        };
+        $records = $attendances->map(function ($attendance) use ($formatTimeManila) {
             return [
                 'id' => $attendance->id,
                 'date' => $attendance->date->format('Y-m-d'),
@@ -153,15 +164,31 @@ class TimesheetsController extends BaseController
                 'clock_in_time' => $attendance->clock_in_time
                     ? $attendance->clock_in_time->format('H:i:s')
                     : null,
-                'clock_in_time_label' => $attendance->clock_in_time
-                    ? $attendance->clock_in_time->format('g:i A')
-                    : null,
+                'clock_in_time_label' => $formatTimeManila(
+                    $attendance->getRawOriginal('clock_in_time'),
+                    $attendance
+                ),
                 'clock_out_time' => $attendance->clock_out_time
                     ? $attendance->clock_out_time->format('H:i:s')
                     : null,
-                'clock_out_time_label' => $attendance->clock_out_time
-                    ? $attendance->clock_out_time->format('g:i A')
+                'clock_out_time_label' => $formatTimeManila(
+                    $attendance->getRawOriginal('clock_out_time'),
+                    $attendance
+                ),
+                'break_start_time' => $attendance->break_start
+                    ? $attendance->break_start->format('H:i:s')
                     : null,
+                'break_start_time_label' => $formatTimeManila(
+                    $attendance->getRawOriginal('break_start'),
+                    $attendance
+                ),
+                'break_end_time' => $attendance->break_end
+                    ? $attendance->break_end->format('H:i:s')
+                    : null,
+                'break_end_time_label' => $formatTimeManila(
+                    $attendance->getRawOriginal('break_end'),
+                    $attendance
+                ),
                 'clock_in_photo' => $attendance->clock_in_photo
                     ? (str_starts_with($attendance->clock_in_photo, 'http') 
                         ? $attendance->clock_in_photo 

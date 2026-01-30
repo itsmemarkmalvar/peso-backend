@@ -381,6 +381,169 @@ class AttendanceController extends BaseController
     }
 
     /**
+     * Record break start (intern went on break)
+     */
+    public function breakStart(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) {
+            return $this->unauthorized('User not authenticated');
+        }
+        $user->refresh();
+        $rawRole = $user->getRawOriginal('role') ?? $user->getAttribute('role');
+        $isAllowed = $user->role instanceof \App\Enums\UserRole
+            ? $user->isInternOrGip()
+            : in_array(strtolower((string) $rawRole), ['intern', 'gip'], true);
+        if (!$isAllowed) {
+            return $this->forbidden('Only interns and GIP can record break');
+        }
+
+        $intern = Intern::where('user_id', $user->id)->first();
+        if (!$intern) {
+            return $this->notFound('Intern profile not found');
+        }
+
+        $settings = SystemSetting::get();
+        $rules = [
+            'location_lat' => ($settings->verification_gps ? 'required' : 'nullable') . '|numeric|between:-90,90',
+            'location_lng' => ($settings->verification_gps ? 'required' : 'nullable') . '|numeric|between:-180,180',
+            'photo' => ($settings->verification_selfie ? 'required' : 'nullable') . '|string',
+            'geofence_location_id' => 'nullable|exists:geofence_locations,id',
+        ];
+        $validator = Validator::make($request->all(), $rules);
+        if ($validator->fails()) {
+            return $this->validationError($validator->errors());
+        }
+
+        $today = now()->startOfDay();
+        $attendance = Attendance::where('intern_id', $intern->id)
+            ->where('date', $today)
+            ->first();
+
+        if (!$attendance || !$attendance->clock_in_time) {
+            return $this->error('You must clock in first', 400);
+        }
+        if ($attendance->clock_out_time) {
+            return $this->error('You have already clocked out today', 400);
+        }
+        if ($attendance->break_start) {
+            return $this->error('You have already started a break today', 400);
+        }
+
+        if ($request->geofence_location_id) {
+            $geofenceLocation = GeofenceLocation::where('id', $request->geofence_location_id)
+                ->where('is_active', true)
+                ->first();
+            if (!$geofenceLocation) {
+                return $this->error('Invalid geofence location', 400);
+            }
+            $distance = $this->calculateDistance(
+                (float) $request->location_lat,
+                (float) $request->location_lng,
+                $geofenceLocation->latitude,
+                $geofenceLocation->longitude
+            );
+            if ($distance > $geofenceLocation->radius_meters) {
+                return $this->error('You are outside the allowed geofence area', 400);
+            }
+        }
+
+        $breakStartTime = now();
+        try {
+            $attendance->update(['break_start' => $breakStartTime]);
+            return $this->success([
+                'attendance' => $attendance->fresh(['intern', 'geofenceLocation']),
+                'message' => 'Break started',
+            ], 'Break started');
+        } catch (\Exception $e) {
+            return $this->error('Failed to record break start: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Record break end (intern returned from break)
+     */
+    public function breakEnd(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) {
+            return $this->unauthorized('User not authenticated');
+        }
+        $user->refresh();
+        $rawRole = $user->getRawOriginal('role') ?? $user->getAttribute('role');
+        $isAllowed = $user->role instanceof \App\Enums\UserRole
+            ? $user->isInternOrGip()
+            : in_array(strtolower((string) $rawRole), ['intern', 'gip'], true);
+        if (!$isAllowed) {
+            return $this->forbidden('Only interns and GIP can record break');
+        }
+
+        $intern = Intern::where('user_id', $user->id)->first();
+        if (!$intern) {
+            return $this->notFound('Intern profile not found');
+        }
+
+        $settings = SystemSetting::get();
+        $rules = [
+            'location_lat' => ($settings->verification_gps ? 'required' : 'nullable') . '|numeric|between:-90,90',
+            'location_lng' => ($settings->verification_gps ? 'required' : 'nullable') . '|numeric|between:-180,180',
+            'photo' => ($settings->verification_selfie ? 'required' : 'nullable') . '|string',
+            'geofence_location_id' => 'nullable|exists:geofence_locations,id',
+        ];
+        $validator = Validator::make($request->all(), $rules);
+        if ($validator->fails()) {
+            return $this->validationError($validator->errors());
+        }
+
+        $today = now()->startOfDay();
+        $attendance = Attendance::where('intern_id', $intern->id)
+            ->where('date', $today)
+            ->first();
+
+        if (!$attendance || !$attendance->clock_in_time) {
+            return $this->error('You must clock in first', 400);
+        }
+        if ($attendance->clock_out_time) {
+            return $this->error('You have already clocked out today', 400);
+        }
+        if (!$attendance->break_start) {
+            return $this->error('You have not started a break yet', 400);
+        }
+        if ($attendance->break_end) {
+            return $this->error('You have already ended your break today', 400);
+        }
+
+        if ($request->geofence_location_id) {
+            $geofenceLocation = GeofenceLocation::where('id', $request->geofence_location_id)
+                ->where('is_active', true)
+                ->first();
+            if (!$geofenceLocation) {
+                return $this->error('Invalid geofence location', 400);
+            }
+            $distance = $this->calculateDistance(
+                (float) $request->location_lat,
+                (float) $request->location_lng,
+                $geofenceLocation->latitude,
+                $geofenceLocation->longitude
+            );
+            if ($distance > $geofenceLocation->radius_meters) {
+                return $this->error('You are outside the allowed geofence area', 400);
+            }
+        }
+
+        $breakEndTime = now();
+        try {
+            $attendance->update(['break_end' => $breakEndTime]);
+            return $this->success([
+                'attendance' => $attendance->fresh(['intern', 'geofenceLocation']),
+                'message' => 'Break ended',
+            ], 'Break ended');
+        } catch (\Exception $e) {
+            return $this->error('Failed to record break end: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
      * List attendance records
      */
     public function index(Request $request): JsonResponse
@@ -421,7 +584,7 @@ class AttendanceController extends BaseController
     }
 
     /**
-     * Get today's attendance
+     * Get today's attendance (single record for one intern, or filtered)
      */
     public function today(Request $request): JsonResponse
     {
@@ -447,6 +610,27 @@ class AttendanceController extends BaseController
         }
 
         return $this->success($attendance, 'Today\'s attendance');
+    }
+
+    /**
+     * Get all today's attendance records (admin/supervisor only)
+     * Used so admin dashboard reflects real clock-in/out and break start/end from interns
+     */
+    public function todayAll(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!$user->isAdmin() && !$user->isSupervisor()) {
+            return $this->forbidden('Only administrators and supervisors can view all today\'s attendance');
+        }
+
+        $today = now()->startOfDay();
+        $attendance = Attendance::with(['intern.user', 'geofenceLocation'])
+            ->where('date', $today)
+            ->orderBy('clock_in_time', 'desc')
+            ->get();
+
+        return $this->success($attendance, 'Today\'s attendance retrieved');
     }
 
     /**
