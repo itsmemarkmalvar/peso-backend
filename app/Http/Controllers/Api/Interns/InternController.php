@@ -98,11 +98,19 @@ class InternController extends BaseController
             'emergency_contact_phone' => 'required|string|max:50',
             'required_hours' => 'required|integer|min:1',
             'weekly_availability' => 'required|array',
+<<<<<<< Updated upstream
             'weekly_availability.monday' => 'required|string|in:available,not_available',
             'weekly_availability.tuesday' => 'required|string|in:available,not_available',
             'weekly_availability.wednesday' => 'required|string|in:available,not_available',
             'weekly_availability.thursday' => 'required|string|in:available,not_available',
             'weekly_availability.friday' => 'required|string|in:available,not_available',
+=======
+            'weekly_availability.monday' => 'required|string|in:full_day,half_day,not_available',
+            'weekly_availability.tuesday' => 'required|string|in:full_day,half_day,not_available',
+            'weekly_availability.wednesday' => 'required|string|in:full_day,half_day,not_available',
+            'weekly_availability.thursday' => 'required|string|in:full_day,half_day,not_available',
+            'weekly_availability.friday' => 'required|string|in:full_day,half_day,not_available',
+>>>>>>> Stashed changes
         ]);
 
         $user = $request->user();
