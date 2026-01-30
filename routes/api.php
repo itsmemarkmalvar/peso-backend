@@ -279,6 +279,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/{id}', [App\Http\Controllers\Api\GeofenceLocationsController::class, 'destroy']);
     });
 
+    // Settings (GET: any authenticated user; PUT: admin only, enforced in controller)
+    Route::get('/settings', [App\Http\Controllers\Api\SettingsController::class, 'index']);
+    Route::put('/settings', [App\Http\Controllers\Api\SettingsController::class, 'update']);
+
     // Registration Requests (Admin only) - New system using RegistrationRequest model
     Route::prefix('registration-requests')->group(function () {
         Route::get('/', [App\Http\Controllers\Api\RegistrationRequestsController::class, 'index']);
