@@ -2,6 +2,13 @@
 
 namespace App\Enums;
 
+/**
+ * User roles for the PESO OJT Attendance System.
+ *
+ * GIP (Government Internship Program) is functionally identical to INTERN:
+ * same capabilities, restrictions, attendance flow, and data access (own only).
+ * Use HasRoles::isInternOrGip() for any check that applies to both roles.
+ */
 enum UserRole: string
 {
     case ADMIN = 'admin';

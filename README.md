@@ -12,7 +12,8 @@ Laravel REST API backend for the OJT Interns Attendance System.
 ## 📋 Features
 
 - ✅ User Authentication (Login/Logout)
-- ✅ Role-Based Access Control (Admin, Intern, Supervisor, Coordinator)
+- ✅ Role-Based Access Control (Admin, Intern, GIP, Supervisor)
+  - GIP (Government Internship Program) users use the same flow as Intern; see `RBAC_DESIGN.md`.
 - ✅ Attendance Management (Clock In/Out)
 - ✅ Schedule Management
 - ✅ Approval Workflow
@@ -47,7 +48,7 @@ Laravel REST API backend for the OJT Interns Attendance System.
      DB_DATABASE=peso_attendance
      DB_USERNAME=root
      DB_PASSWORD=
-     ```
+     ```zzc
 
 5. **Run migrations**
    ```bash

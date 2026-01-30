@@ -4,6 +4,13 @@ namespace App\Traits;
 
 use App\Enums\UserRole;
 
+/**
+ * Role helpers for User model.
+ *
+ * GIP users inherit all Intern behavior (single source of truth). For any
+ * permission, attendance, or UI check that applies to both Intern and GIP,
+ * use isInternOrGip() instead of isIntern() only.
+ */
 trait HasRoles
 {
     /**
@@ -60,7 +67,8 @@ trait HasRoles
     }
 
     /**
-     * Check if user is intern or GIP (same restrictions)
+     * Check if user is intern or GIP (same restrictions and capabilities).
+     * Use this as the single canonical check for "intern-like" access.
      */
     public function isInternOrGip(): bool
     {

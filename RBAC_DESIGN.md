@@ -13,6 +13,12 @@
 
 **Note:** GIP has the same restrictions and capabilities as INTERN. Both roles can only access their own data and cannot view other users' information.
 
+### GIP implementation (single source of truth)
+- **GIP users inherit the Intern user flow.** There is no separate workflow, logic, or duplicated file for GIP.
+- In code: use `HasRoles::isInternOrGip()` (backend) or `authUtils.isInternOrGip()` (frontend) for any check that applies to both Intern and GIP.
+- Diagrams: reuse the Intern User Flow; label the actor as "Intern / GIP User" or add a note: "GIP users inherit all Intern user functionalities and restrictions."
+- Documentation: reference the Intern user flow instead of rewriting it for GIP.
+
 ---
 
 ## 📊 Permission Matrix

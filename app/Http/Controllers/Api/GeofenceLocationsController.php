@@ -22,8 +22,8 @@ class GeofenceLocationsController extends BaseController
 
         $query = GeofenceLocation::query();
 
-        // Intern/GIP can only see active geofences
-        if ($user->isIntern() || $user->isGip()) {
+        // Intern/GIP can only see active geofences (same rule as Intern)
+        if ($user->isInternOrGip()) {
             $query->where('is_active', true);
         } elseif ($activeOnly) {
             // Admin/Supervisor can filter by active_only if requested
@@ -46,8 +46,8 @@ class GeofenceLocationsController extends BaseController
         
         $query = GeofenceLocation::query()->where('id', $id);
 
-        // Intern/GIP can only see active geofences
-        if ($user->isIntern() || $user->isGip()) {
+        // Intern/GIP can only see active geofences (same rule as Intern)
+        if ($user->isInternOrGip()) {
             $query->where('is_active', true);
         }
 

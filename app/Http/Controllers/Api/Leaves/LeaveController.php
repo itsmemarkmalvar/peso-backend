@@ -36,9 +36,19 @@ class LeaveController extends BaseController
 
     public function index(Request $request): JsonResponse
     {
-        $leaves = Leave::with('intern')
-            ->orderByDesc('created_at')
-            ->get()
+        $user = $request->user();
+        $query = Leave::with('intern')->orderByDesc('created_at');
+
+        // Intern/GIP: only their own leaves (reuse Intern flow)
+        if ($user->isInternOrGip()) {
+            $intern = Intern::where('user_id', $user->id)->first();
+            if (!$intern) {
+                return $this->success([], 'Leave requests list');
+            }
+            $query->where('intern_id', $intern->id);
+        }
+
+        $leaves = $query->get()
             ->map(fn (Leave $leave) => $this->formatLeave($leave))
             ->values();
 
@@ -47,10 +57,19 @@ class LeaveController extends BaseController
 
     public function pending(Request $request): JsonResponse
     {
-        $leaves = Leave::with('intern')
-            ->where('status', 'pending')
-            ->orderByDesc('created_at')
-            ->get()
+        $user = $request->user();
+        $query = Leave::with('intern')->where('status', 'pending')->orderByDesc('created_at');
+
+        // Intern/GIP: only their own pending leaves (reuse Intern flow)
+        if ($user->isInternOrGip()) {
+            $intern = Intern::where('user_id', $user->id)->first();
+            if (!$intern) {
+                return $this->success([], 'Pending leave requests');
+            }
+            $query->where('intern_id', $intern->id);
+        }
+
+        $leaves = $query->get()
             ->map(fn (Leave $leave) => $this->formatLeave($leave))
             ->values();
 
@@ -68,6 +87,7 @@ class LeaveController extends BaseController
         ]);
 
         $user = $request->user();
+        // Intern and GIP both use the same intern profile (single source of truth)
         $intern = Intern::where('user_id', $user->id)->first();
 
         if (!$intern) {

@@ -112,8 +112,13 @@ class TimesheetsController extends BaseController
     {
         $user = $request->user();
 
-        // Only admin and supervisor can view intern timesheets
-        if (!$user->isAdmin() && !$user->isSupervisor()) {
+        // Admin/supervisor: any intern; Intern/GIP: own timesheet only (reuse Intern flow)
+        if ($user->isInternOrGip()) {
+            $myIntern = Intern::where('user_id', $user->id)->first();
+            if (!$myIntern || $myIntern->id !== $internId) {
+                return $this->forbidden('You can only view your own timesheet');
+            }
+        } elseif (!$user->isAdmin() && !$user->isSupervisor()) {
             return $this->forbidden('Only administrators and supervisors can view timesheets');
         }
 
