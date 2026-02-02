@@ -53,6 +53,12 @@ class RegistrationRequestsController extends BaseController
             'department_id' => 'nullable|integer|exists:departments,id',
         ]);
 
+        $actor = $request->user();
+        $requestedRole = $validated['role'];
+        if ($actor && $actor->isSupervisor()) {
+            $requestedRole = 'intern';
+        }
+
         $registrationRequest = RegistrationRequest::findOrFail($id);
 
         if ($registrationRequest->status !== 'pending') {
@@ -71,15 +77,15 @@ class RegistrationRequestsController extends BaseController
         }
 
         // Validate department is required for intern and GIP roles
-        if (in_array($validated['role'], ['intern', 'gip']) && !$validated['department_id']) {
-            return $this->error('Department is required for ' . $validated['role'] . ' role.', 422);
+        if (in_array($requestedRole, ['intern', 'gip']) && !$validated['department_id']) {
+            return $this->error('Department is required for ' . $requestedRole . ' role.', 422);
         }
 
         // Generate username from email
         $baseUsername = Str::of($registrationRequest->email)->before('@')->lower()->replaceMatches('/[^a-z0-9_\.]/', '');
         $username = (string) $baseUsername;
         if ($username === '') {
-            $username = $validated['role'];
+            $username = $requestedRole;
         }
 
         // Ensure username uniqueness
@@ -94,7 +100,7 @@ class RegistrationRequestsController extends BaseController
         $invitationToken = Str::random(64);
 
         // Map role string to UserRole enum
-        $role = match($validated['role']) {
+        $role = match($requestedRole) {
             'admin' => UserRole::ADMIN,
             'supervisor' => UserRole::SUPERVISOR,
             'gip' => UserRole::GIP,
@@ -127,7 +133,7 @@ class RegistrationRequestsController extends BaseController
 
         // Send invitation email
         try {
-            Mail::to($user->email)->send(new InvitationMail($user, $invitationUrl, $validated['role']));
+            Mail::to($user->email)->send(new InvitationMail($user, $invitationUrl, $requestedRole));
         } catch (\Exception $e) {
             // Log error but don't fail the approval
             \Log::error('Failed to send invitation email: ' . $e->getMessage());
@@ -135,7 +141,7 @@ class RegistrationRequestsController extends BaseController
 
         return $this->success([
             'user' => $user,
-            'role' => $validated['role'],
+            'role' => $requestedRole,
             'department_id' => $validated['department_id'],
             'invitation_sent' => true,
         ], 'Registration request approved. Invitation email sent successfully.');
