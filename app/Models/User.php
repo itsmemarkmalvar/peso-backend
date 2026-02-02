@@ -55,4 +55,9 @@ class User extends Authenticatable
             'invitation_accepted_at' => 'datetime',
         ];
     }
+
+    public function supervisedInterns()
+    {
+        return $this->hasMany(Intern::class, 'supervisor_user_id');
+    }
 }

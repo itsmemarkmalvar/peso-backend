@@ -24,6 +24,17 @@ class InternController extends BaseController
                 ? null
                 : (int) $intern->required_hours,
             'weekly_availability' => $intern->weekly_availability,
+            'supervisor_user_id' => $intern->supervisor_user_id,
+            'supervisor_name' => $intern->supervisor_name,
+            'supervisor_email' => $intern->supervisor_email,
+            'supervisor_contact' => $intern->supervisor_contact,
+            'supervisor' => $intern->relationLoaded('supervisor') && $intern->supervisor
+                ? [
+                    'id' => $intern->supervisor->id,
+                    'name' => $intern->supervisor->name,
+                    'email' => $intern->supervisor->email,
+                ]
+                : null,
             'start_date' => optional($intern->start_date)->toDateString(),
             'end_date' => optional($intern->end_date)->toDateString(),
             'onboarded_at' => optional($intern->onboarded_at)->toISOString(),
@@ -32,9 +43,16 @@ class InternController extends BaseController
 
     public function index(Request $request): JsonResponse
     {
+        $user = $request->user();
         $query = Intern::query()
-            ->with('user')
+            ->with(['user', 'supervisor'])
             ->orderBy('full_name');
+
+        if ($user && $user->isSupervisor()) {
+            $query->where('supervisor_user_id', $user->id);
+        } elseif ($request->filled('supervisor_user_id')) {
+            $query->where('supervisor_user_id', $request->input('supervisor_user_id'));
+        }
 
         if ($search = $request->string('search')->toString()) {
             $query->where(function ($q) use ($search) {
@@ -62,6 +80,8 @@ class InternController extends BaseController
                     'year_level' => $intern->year_level,
                     'company_name' => $intern->company_name,
                     'supervisor_name' => $intern->supervisor_name,
+                    'supervisor_user_id' => $intern->supervisor_user_id,
+                    'supervisor_email' => $intern->supervisor?->email ?? $intern->supervisor_email,
                     'is_active' => (bool) $intern->is_active,
                 ];
             });
@@ -78,7 +98,7 @@ class InternController extends BaseController
     public function me(Request $request): JsonResponse
     {
         $user = $request->user();
-        $intern = Intern::where('user_id', $user->id)->first();
+        $intern = Intern::with('supervisor')->where('user_id', $user->id)->first();
 
         if (!$intern) {
             return $this->success(null, 'Intern profile not found');

@@ -44,6 +44,29 @@ class InternSeeder extends Seeder
         // Realistic Filipino intern data
         $internsData = [
             [
+                'name' => 'Test User',
+                'email' => 'test.user@cabuyao.gov.ph',
+                'username' => 'test.user',
+                'student_id' => 'GIP-2026-001',
+                'school' => 'Cabuyao City Hall',
+                'course' => 'Government Internship Program',
+                'year_level' => 'GIP',
+                'phone' => '09120000000',
+                'emergency_contact_name' => 'Test Contact',
+                'emergency_contact_phone' => '09120000001',
+                'required_hours' => 300,
+                'company_name' => 'PESO Office',
+                'supervisor_name' => 'Juan Dela Cruz',
+                'supervisor_email' => 'juan.delacruz@cabuyao.gov.ph',
+                'supervisor_contact' => '09123456700',
+                'work_days' => [1, 2, 3, 4, 5],
+                'work_start' => '08:00',
+                'work_end' => '17:00',
+                'break_duration' => 60,
+                'school_days' => [],
+                'role' => UserRole::GIP,
+            ],
+            [
                 'name' => 'Abamonga, Angelica Lou P.',
                 'email' => 'angelica.abamonga@example.com',
                 'username' => 'angelica.abamonga',
@@ -380,6 +403,8 @@ class InternSeeder extends Seeder
         $endDate = $now->copy()->addMonths(3); // End 3 months from now
 
         foreach ($internsData as $index => $internData) {
+            $role = $internData['role'] ?? UserRole::INTERN;
+
             // Create user account
             $user = User::updateOrCreate(
                 ['email' => $internData['email']],
@@ -387,16 +412,29 @@ class InternSeeder extends Seeder
                     'name' => $internData['name'],
                     'username' => $internData['username'],
                     'password' => Hash::make('Password123'),
-                    'role' => UserRole::INTERN,
+                    'role' => $role,
                     'status' => 'active',
                 ]
             );
+
+            $supervisorUser = null;
+            if (!empty($internData['supervisor_email'])) {
+                $supervisorUser = User::where('email', $internData['supervisor_email'])
+                    ->where('role', UserRole::SUPERVISOR)
+                    ->first();
+            }
+            if (!$supervisorUser && !empty($internData['supervisor_name'])) {
+                $supervisorUser = User::where('name', $internData['supervisor_name'])
+                    ->where('role', UserRole::SUPERVISOR)
+                    ->first();
+            }
 
             // Create intern profile
             $intern = Intern::updateOrCreate(
                 ['student_id' => $internData['student_id']],
                 [
                     'user_id' => $user->id,
+                    'supervisor_user_id' => $supervisorUser?->id,
                     'full_name' => $internData['name'],
                     'school' => $internData['school'],
                     'course' => $internData['course'],
