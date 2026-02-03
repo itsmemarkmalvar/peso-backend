@@ -1,6 +1,8 @@
 <?php
 
 use Illuminate\Foundation\Application;
+use Illuminate\Auth\AuthenticationException;
+use Symfony\Component\Routing\Exception\RouteNotFoundException;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 
@@ -15,5 +17,21 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->render(function (AuthenticationException $e, $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated.',
+                ], 401);
+            }
+        });
+
+        $exceptions->render(function (RouteNotFoundException $e, $request) {
+            if ($request->is('api/*') && str_contains($e->getMessage(), 'Route [login] not defined')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthenticated.',
+                ], 401);
+            }
+        });
     })->create();

@@ -27,17 +27,21 @@ class TimesheetsController extends BaseController
 
         // Get week start date (default to current week)
         $weekStart = $request->query('week_start');
+        $manilaTz = 'Asia/Manila';
         if ($weekStart) {
             try {
-                $startDate = Carbon::parse($weekStart)->startOfWeek(Carbon::MONDAY);
+                $startDate = Carbon::parse($weekStart, $manilaTz)->startOfWeek(Carbon::MONDAY);
             } catch (\Exception $e) {
-                $startDate = Carbon::now()->startOfWeek(Carbon::MONDAY);
+                $startDate = Carbon::now($manilaTz)->startOfWeek(Carbon::MONDAY);
             }
         } else {
-            $startDate = Carbon::now()->startOfWeek(Carbon::MONDAY);
+            $startDate = Carbon::now($manilaTz)->startOfWeek(Carbon::MONDAY);
         }
 
         $endDate = $startDate->copy()->endOfWeek(Carbon::SUNDAY);
+        $queryStart = $startDate->copy()->subDay()->format('Y-m-d');
+        $queryEnd = $endDate->copy()->addDay()->format('Y-m-d');
+        $todayManila = Carbon::now($manilaTz)->format('Y-m-d');
 
         // Get all active interns
         $interns = Intern::where('is_active', true)
@@ -45,7 +49,7 @@ class TimesheetsController extends BaseController
             ->get();
 
         // Get attendance records for the week
-        $attendances = Attendance::whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
+        $attendances = Attendance::whereBetween('date', [$queryStart, $queryEnd])
             ->whereIn('intern_id', $interns->pluck('id'))
             ->get()
             ->groupBy('intern_id');
@@ -59,23 +63,46 @@ class TimesheetsController extends BaseController
         $timesheetRows = [];
         foreach ($interns as $intern) {
             $internAttendances = $attendances->get($intern->id, collect());
+            $internAttendancesByDate = $internAttendances->mapWithKeys(function ($attendance) use ($manilaTz) {
+                $effectiveDate = null;
+                if ($attendance->clock_in_time) {
+                    $effectiveDate = Carbon::parse($attendance->clock_in_time)
+                        ->setTimezone($manilaTz)
+                        ->format('Y-m-d');
+                } elseif ($attendance->date) {
+                    $effectiveDate = Carbon::parse($attendance->date->format('Y-m-d'), $manilaTz)
+                        ->format('Y-m-d');
+                }
+                return $effectiveDate ? [$effectiveDate => $attendance] : [];
+            });
             
             $days = [];
             $weekTotal = 0;
 
             foreach ($weekDates as $date) {
-                $attendance = $internAttendances->firstWhere('date', $date);
-                
-                if ($attendance && $attendance->total_hours) {
-                    $hours = (float) $attendance->total_hours;
-                    $hoursFormatted = $this->formatHours($hours);
+                $attendance = $internAttendancesByDate->get($date);
+
+                $hoursValue = null;
+                if ($attendance) {
+                    if ($attendance->total_hours !== null && (float) $attendance->total_hours > 0) {
+                        $hoursValue = (float) $attendance->total_hours;
+                    } elseif ($attendance->clock_in_time && $attendance->clock_out_time) {
+                        $hoursValue = $this->computeCompletedHours($attendance);
+                    } elseif ($attendance->clock_in_time && !$attendance->clock_out_time && $date === $todayManila) {
+                        // In-progress: estimate hours from clock-in to now, minus breaks.
+                        $hoursValue = $this->estimateInProgressHours($attendance);
+                    }
+                }
+
+                if ($hoursValue !== null) {
+                    $hoursFormatted = $this->formatHours($hoursValue);
                     $days[] = [
                         'date' => $date,
                         'hours' => $hoursFormatted,
                         'label' => $hoursFormatted,
                         'isRestDay' => false,
                     ];
-                    $weekTotal += $hours;
+                    $weekTotal += $hoursValue;
                 } else {
                     $days[] = [
                         'date' => $date,
@@ -156,6 +183,25 @@ class TimesheetsController extends BaseController
             return $carbon->format('g:i A');
         };
         $records = $attendances->map(function ($attendance) use ($formatTimeManila) {
+            $computedHours = null;
+            if ($attendance->clock_in_time && $attendance->clock_out_time) {
+                $totalMinutes = $attendance->clock_out_time->diffInMinutes($attendance->clock_in_time);
+                if ($attendance->break_start && $attendance->break_end) {
+                    $totalMinutes -= $attendance->break_end->diffInMinutes($attendance->break_start);
+                }
+                $totalMinutes = max(0, $totalMinutes);
+                $computedHours = round($totalMinutes / 60, 2);
+            }
+
+            $hoursValue = $attendance->total_hours !== null
+                ? (float) $attendance->total_hours
+                : null;
+            if ($hoursValue !== null && $hoursValue <= 0 && $computedHours !== null) {
+                $hoursValue = $computedHours;
+            } elseif ($hoursValue === null && $computedHours !== null) {
+                $hoursValue = $computedHours;
+            }
+
             return [
                 'id' => $attendance->id,
                 'date' => $attendance->date->format('Y-m-d'),
@@ -199,11 +245,9 @@ class TimesheetsController extends BaseController
                         ? $attendance->clock_out_photo
                         : asset('storage/' . $attendance->clock_out_photo))
                     : null,
-                'total_hours' => $attendance->total_hours
-                    ? (float) $attendance->total_hours
-                    : null,
-                'total_hours_label' => $attendance->total_hours
-                    ? $this->formatHours((float) $attendance->total_hours)
+                'total_hours' => $hoursValue,
+                'total_hours_label' => $hoursValue !== null
+                    ? $this->formatHours($hoursValue)
                     : '-',
                 'status' => $attendance->status,
                 'is_late' => $attendance->is_late,
@@ -214,8 +258,8 @@ class TimesheetsController extends BaseController
         });
 
         // Calculate totals
-        $totalHours = $attendances->sum(function ($attendance) {
-            return $attendance->total_hours ? (float) $attendance->total_hours : 0;
+        $totalHours = $records->sum(function ($record) {
+            return $record['total_hours'] ? (float) $record['total_hours'] : 0;
         });
 
         return $this->success([
@@ -256,5 +300,47 @@ class TimesheetsController extends BaseController
         }
 
         return "{$wholeHours}h {$minutes}m";
+    }
+
+    /**
+     * Estimate hours when attendance is in progress (clock-in without clock-out).
+     */
+    private function estimateInProgressHours(Attendance $attendance): float
+    {
+        $start = $attendance->clock_in_time;
+        if (!$start) {
+            return 0;
+        }
+
+        $end = now();
+        $totalMinutes = $end->diffInMinutes($start);
+
+        if ($attendance->break_start && $attendance->break_end) {
+            $totalMinutes -= $attendance->break_end->diffInMinutes($attendance->break_start);
+        } elseif ($attendance->break_start && !$attendance->break_end) {
+            $totalMinutes -= $end->diffInMinutes($attendance->break_start);
+        }
+
+        $totalMinutes = max(0, $totalMinutes);
+        return round($totalMinutes / 60, 2);
+    }
+
+    /**
+     * Compute hours for completed attendance (clock-in + clock-out).
+     */
+    private function computeCompletedHours(Attendance $attendance): float
+    {
+        $start = $attendance->clock_in_time;
+        $end = $attendance->clock_out_time;
+        if (!$start || !$end) {
+            return 0;
+        }
+
+        $totalMinutes = $end->diffInMinutes($start);
+        if ($attendance->break_start && $attendance->break_end) {
+            $totalMinutes -= $attendance->break_end->diffInMinutes($attendance->break_start);
+        }
+        $totalMinutes = max(0, $totalMinutes);
+        return round($totalMinutes / 60, 2);
     }
 }
