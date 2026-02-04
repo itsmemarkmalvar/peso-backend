@@ -203,6 +203,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('intern')->group(function () {
         Route::get('/dashboard', [App\Http\Controllers\Api\Interns\InternDashboardController::class, 'dashboard']);
         Route::get('/time-clock', [App\Http\Controllers\Api\Interns\InternDashboardController::class, 'timeClock']);
+        Route::get('/timesheets', [App\Http\Controllers\Api\TimesheetsController::class, 'internWeekly']);
     });
 
     // Attendance

@@ -182,7 +182,8 @@ class TimesheetsController extends BaseController
                 : Carbon::parse($raw, 'Asia/Manila');
             return $carbon->format('g:i A');
         };
-        $records = $attendances->map(function ($attendance) use ($formatTimeManila) {
+        $todayManila = Carbon::now('Asia/Manila')->format('Y-m-d');
+        $records = $attendances->map(function ($attendance) use ($formatTimeManila, $todayManila) {
             $computedHours = null;
             if ($attendance->clock_in_time && $attendance->clock_out_time) {
                 $totalMinutes = $attendance->clock_out_time->diffInMinutes($attendance->clock_in_time);
@@ -191,6 +192,11 @@ class TimesheetsController extends BaseController
                 }
                 $totalMinutes = max(0, $totalMinutes);
                 $computedHours = round($totalMinutes / 60, 2);
+            } elseif ($attendance->clock_in_time && !$attendance->clock_out_time) {
+                $attendanceDate = $attendance->date->format('Y-m-d');
+                if ($attendanceDate === $todayManila) {
+                    $computedHours = $this->estimateInProgressHours($attendance);
+                }
             }
 
             $hoursValue = $attendance->total_hours !== null
@@ -283,6 +289,96 @@ class TimesheetsController extends BaseController
     }
 
     /**
+     * Get weekly timesheet data for the authenticated intern (intern view)
+     */
+    public function internWeekly(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!$user->isInternOrGip()) {
+            return $this->forbidden('Only interns can view their weekly timesheet');
+        }
+
+        $intern = Intern::where('user_id', $user->id)->first();
+        if (!$intern) {
+            return $this->notFound('Intern profile not found');
+        }
+
+        $manilaTz = 'Asia/Manila';
+        $weekStart = $request->query('week_start');
+        if ($weekStart) {
+            try {
+                $startDate = Carbon::parse($weekStart, $manilaTz)->startOfWeek(Carbon::MONDAY);
+            } catch (\Exception $e) {
+                $startDate = Carbon::now($manilaTz)->startOfWeek(Carbon::MONDAY);
+            }
+        } else {
+            $startDate = Carbon::now($manilaTz)->startOfWeek(Carbon::MONDAY);
+        }
+
+        $endDate = $startDate->copy()->endOfWeek(Carbon::SUNDAY);
+        $queryStart = $startDate->copy()->subDay()->format('Y-m-d');
+        $queryEnd = $endDate->copy()->addDay()->format('Y-m-d');
+        $todayManila = Carbon::now($manilaTz)->format('Y-m-d');
+
+        $attendances = Attendance::where('intern_id', $intern->id)
+            ->whereBetween('date', [$queryStart, $queryEnd])
+            ->get();
+
+        $attendancesByDate = $attendances->mapWithKeys(function ($attendance) use ($manilaTz) {
+            $effectiveDate = null;
+            if ($attendance->clock_in_time) {
+                $effectiveDate = Carbon::parse($attendance->clock_in_time)
+                    ->setTimezone($manilaTz)
+                    ->format('Y-m-d');
+            } elseif ($attendance->date) {
+                $effectiveDate = Carbon::parse($attendance->date->format('Y-m-d'), $manilaTz)
+                    ->format('Y-m-d');
+            }
+            return $effectiveDate ? [$effectiveDate => $attendance] : [];
+        });
+
+        $entries = [];
+        $weekTotal = 0;
+
+        for ($i = 0; $i < 7; $i++) {
+            $date = $startDate->copy()->addDays($i);
+            $dateStr = $date->format('Y-m-d');
+            $attendance = $attendancesByDate->get($dateStr);
+
+            $hoursValue = null;
+            if ($attendance) {
+                if ($attendance->total_hours !== null && (float) $attendance->total_hours > 0) {
+                    $hoursValue = (float) $attendance->total_hours;
+                } elseif ($attendance->clock_in_time && $attendance->clock_out_time) {
+                    $hoursValue = $this->computeCompletedHours($attendance);
+                } elseif ($attendance->clock_in_time && !$attendance->clock_out_time && $dateStr === $todayManila) {
+                    $hoursValue = $this->estimateInProgressHours($attendance);
+                }
+            }
+
+            if ($hoursValue !== null) {
+                $weekTotal += $hoursValue;
+            }
+
+            $entries[] = [
+                'day' => $date->format('D'),
+                'hours' => $hoursValue !== null ? $this->formatHours($hoursValue) : $this->formatHours(0),
+                'status' => $this->formatStatusLabel($attendance?->status),
+            ];
+        }
+
+        $weekLabel = 'Week of ' . $startDate->format('M j') . ' - ' . $endDate->format('M j');
+        $totalLabel = 'Total: ' . $this->formatHours($weekTotal);
+
+        return $this->success([
+            'weekLabel' => $weekLabel,
+            'totalLabel' => $totalLabel,
+            'entries' => $entries,
+        ], 'Intern timesheet retrieved successfully');
+    }
+
+    /**
      * Format hours as "Xh Ym" (e.g., "8h 30m")
      */
     private function formatHours(float $hours): string
@@ -300,6 +396,19 @@ class TimesheetsController extends BaseController
         }
 
         return "{$wholeHours}h {$minutes}m";
+    }
+
+    /**
+     * Normalize attendance status to title case for intern-facing labels.
+     */
+    private function formatStatusLabel($status): string
+    {
+        $normalized = strtolower((string) $status);
+        return match ($normalized) {
+            'approved' => 'Approved',
+            'rejected' => 'Rejected',
+            default => 'Pending',
+        };
     }
 
     /**

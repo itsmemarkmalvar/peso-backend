@@ -18,7 +18,6 @@ return new class extends Migration
                 ->unique()
                 ->constrained('users')
                 ->cascadeOnDelete();
-
             $table->string('student_id', 50)->unique()->nullable();
             $table->string('full_name');
             $table->string('school');
