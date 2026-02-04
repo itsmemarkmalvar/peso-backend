@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Interns;
 
 use App\Http\Controllers\Api\BaseController;
+use App\Helpers\AttendanceHours;
 use App\Models\Attendance;
 use App\Models\Intern;
 use App\Models\Schedule;
@@ -102,7 +103,7 @@ class InternDashboardController extends BaseController
         $breakLabel = 'No break taken';
         if ($todayAttendance && $todayAttendance->break_start) {
             if ($todayAttendance->break_end) {
-                $breakDuration = $todayAttendance->break_end->diffInMinutes($todayAttendance->break_start);
+                $breakDuration = $todayAttendance->break_start->diffInMinutes($todayAttendance->break_end);
                 $breakLabel = "{$breakDuration} minutes";
             } else {
                 $breakLabel = 'Currently on break';
@@ -117,48 +118,65 @@ class InternDashboardController extends BaseController
         }
 
         // Build summary stats
-        $todayHours = '0.0';
+        $todayHoursValue = 0.0;
         if ($todayAttendance && $todayAttendance->clock_in_time) {
-            if ($todayAttendance->clock_out_time) {
-                $todayHours = number_format($todayAttendance->total_hours ?? 0, 1);
+            if ($todayAttendance->total_hours !== null && (float) $todayAttendance->total_hours > 0) {
+                $todayHoursValue = (float) $todayAttendance->total_hours;
+            } elseif ($todayAttendance->clock_out_time) {
+                $todayHoursValue = AttendanceHours::computeCompletedHours($todayAttendance);
             } else {
-                // Calculate current hours if still clocked in
-                $minutes = $now->diffInMinutes($todayAttendance->clock_in_time);
-                if ($todayAttendance->break_start && $todayAttendance->break_end) {
-                    $breakMinutes = $todayAttendance->break_end->diffInMinutes($todayAttendance->break_start);
-                    $minutes -= $breakMinutes;
-                } elseif ($todayAttendance->break_start) {
-                    // Currently on break, subtract time since break started
-                    $breakMinutes = $now->diffInMinutes($todayAttendance->break_start);
-                    $minutes -= $breakMinutes;
-                }
-                $todayHours = number_format($minutes / 60, 1);
+                $todayHoursValue = AttendanceHours::estimateInProgressHours($todayAttendance, $now);
             }
         }
+        $todayHoursLabel = AttendanceHours::formatHours($todayHoursValue);
 
-        $weekHours = number_format($weekAttendance->sum('total_hours') ?? 0, 1);
-        
-        $totalHours = number_format(
-            Attendance::where('intern_id', $intern->id)
-                ->whereNotNull('total_hours')
-                ->sum('total_hours') ?? 0,
-            1
-        );
+        $todayDate = $now->format('Y-m-d');
+        $weekTotalHours = 0.0;
+        foreach ($weekAttendance as $attendance) {
+            $hoursValue = null;
+            if ($attendance->total_hours !== null && (float) $attendance->total_hours > 0) {
+                $hoursValue = (float) $attendance->total_hours;
+            } elseif ($attendance->clock_in_time && $attendance->clock_out_time) {
+                $hoursValue = AttendanceHours::computeCompletedHours($attendance);
+            } elseif ($attendance->clock_in_time && !$attendance->clock_out_time) {
+                $attendanceDate = $attendance->date ? $attendance->date->format('Y-m-d') : null;
+                if ($attendanceDate === $todayDate) {
+                    $hoursValue = AttendanceHours::estimateInProgressHours($attendance, $now);
+                }
+            }
+            if ($hoursValue !== null) {
+                $weekTotalHours += $hoursValue;
+            }
+        }
+        $weekHoursLabel = AttendanceHours::formatHours($weekTotalHours);
+
+        $totalHoursValue = (float) Attendance::where('intern_id', $intern->id)
+            ->whereNotNull('total_hours')
+            ->sum('total_hours');
+        if ($todayAttendance && $todayAttendance->clock_in_time && !$todayAttendance->clock_out_time) {
+            $totalHoursValue += $todayHoursValue;
+        }
+        $totalHoursLabel = AttendanceHours::formatHours($totalHoursValue);
+
+        if ($todayAttendance) {
+            $todayAttendance->total_hours = $todayHoursValue;
+            $todayAttendance->total_hours_label = $todayHoursLabel;
+        }
 
         $summary = [
             [
                 'label' => 'Today',
-                'value' => $todayHours,
+                'value' => $todayHoursLabel,
                 'sub' => 'hours',
             ],
             [
                 'label' => 'This Week',
-                'value' => $weekHours,
+                'value' => $weekHoursLabel,
                 'sub' => 'hours',
             ],
             [
                 'label' => 'Total',
-                'value' => $totalHours,
+                'value' => $totalHoursLabel,
                 'sub' => 'hours',
             ],
         ];
@@ -169,7 +187,20 @@ class InternDashboardController extends BaseController
         for ($i = 0; $i < 7; $i++) {
             $date = $weekStart->copy()->addDays($i);
             $attendance = $weekAttendance->firstWhere('date', $date->format('Y-m-d'));
-            $hours = $attendance ? number_format($attendance->total_hours ?? 0, 1) : '0.0';
+            $hoursValue = null;
+            if ($attendance) {
+                if ($attendance->total_hours !== null && (float) $attendance->total_hours > 0) {
+                    $hoursValue = (float) $attendance->total_hours;
+                } elseif ($attendance->clock_in_time && $attendance->clock_out_time) {
+                    $hoursValue = AttendanceHours::computeCompletedHours($attendance);
+                } elseif ($attendance->clock_in_time && !$attendance->clock_out_time) {
+                    $attendanceDate = $attendance->date ? $attendance->date->format('Y-m-d') : null;
+                    if ($attendanceDate === $todayDate) {
+                        $hoursValue = AttendanceHours::estimateInProgressHours($attendance, $now);
+                    }
+                }
+            }
+            $hours = AttendanceHours::formatHours($hoursValue ?? 0);
             
             $week[] = [
                 'day' => $daysOfWeek[$date->dayOfWeek],
@@ -264,40 +295,52 @@ class InternDashboardController extends BaseController
             ->sum('total_hours') ?? 0;
 
         // Calculate today's hours
-        $todayHours = 0;
+        $todayHoursValue = 0.0;
         if ($todayAttendance && $todayAttendance->clock_in_time) {
-            if ($todayAttendance->clock_out_time) {
-                $todayHours = $todayAttendance->total_hours ?? 0;
+            if ($todayAttendance->total_hours !== null && (float) $todayAttendance->total_hours > 0) {
+                $todayHoursValue = (float) $todayAttendance->total_hours;
+            } elseif ($todayAttendance->clock_out_time) {
+                $todayHoursValue = AttendanceHours::computeCompletedHours($todayAttendance);
             } else {
-                // Calculate current hours if still clocked in
-                $minutes = $now->diffInMinutes($todayAttendance->clock_in_time);
-                if ($todayAttendance->break_start && $todayAttendance->break_end) {
-                    $breakMinutes = $todayAttendance->break_end->diffInMinutes($todayAttendance->break_start);
-                    $minutes -= $breakMinutes;
-                } elseif ($todayAttendance->break_start) {
-                    $breakMinutes = $now->diffInMinutes($todayAttendance->break_start);
-                    $minutes -= $breakMinutes;
-                }
-                $todayHours = $minutes / 60;
+                $todayHoursValue = AttendanceHours::estimateInProgressHours($todayAttendance, $now);
             }
         }
+        $todayHoursLabel = AttendanceHours::formatHours($todayHoursValue);
 
-        $weekHours = $weekAttendance->sum('total_hours') ?? 0;
+        $todayDate = $now->format('Y-m-d');
+        $weekTotalHours = 0.0;
+        foreach ($weekAttendance as $attendance) {
+            $hoursValue = null;
+            if ($attendance->total_hours !== null && (float) $attendance->total_hours > 0) {
+                $hoursValue = (float) $attendance->total_hours;
+            } elseif ($attendance->clock_in_time && $attendance->clock_out_time) {
+                $hoursValue = AttendanceHours::computeCompletedHours($attendance);
+            } elseif ($attendance->clock_in_time && !$attendance->clock_out_time) {
+                $attendanceDate = $attendance->date ? $attendance->date->format('Y-m-d') : null;
+                if ($attendanceDate === $todayDate) {
+                    $hoursValue = AttendanceHours::estimateInProgressHours($attendance, $now);
+                }
+            }
+            if ($hoursValue !== null) {
+                $weekTotalHours += $hoursValue;
+            }
+        }
+        $weekHoursLabel = AttendanceHours::formatHours($weekTotalHours);
 
         $stats = [
             [
                 'label' => 'Today',
-                'value' => number_format($todayHours, 1),
+                'value' => $todayHoursLabel,
                 'sub' => 'hours',
             ],
             [
                 'label' => 'This Week',
-                'value' => number_format($weekHours, 1),
+                'value' => $weekHoursLabel,
                 'sub' => 'hours',
             ],
             [
                 'label' => 'Total',
-                'value' => number_format($totalHours, 1),
+                'value' => AttendanceHours::formatHours($totalHours),
                 'sub' => 'hours',
             ],
         ];

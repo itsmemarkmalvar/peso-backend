@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Attendance;
 
 use App\Enums\AttendanceStatus;
+use App\Helpers\AttendanceHours;
 use App\Helpers\ResponseHelper;
 use App\Http\Controllers\Api\BaseController;
 use App\Models\Attendance;
@@ -10,6 +11,7 @@ use App\Models\GeofenceLocation;
 use App\Models\Intern;
 use App\Models\Schedule;
 use App\Models\SystemSetting;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -311,11 +313,11 @@ class AttendanceController extends BaseController
 
         // Calculate total hours
         $clockOutTime = now();
-        $totalMinutes = $clockOutTime->diffInMinutes($attendance->clock_in_time);
+        $totalMinutes = $attendance->clock_in_time->diffInMinutes($clockOutTime);
         
         // Subtract break time if exists
         if ($attendance->break_start && $attendance->break_end) {
-            $breakMinutes = $attendance->break_end->diffInMinutes($attendance->break_start);
+            $breakMinutes = $attendance->break_start->diffInMinutes($attendance->break_end);
             $totalMinutes -= $breakMinutes;
         }
         
@@ -609,6 +611,7 @@ class AttendanceController extends BaseController
             return $this->success(null, 'No attendance record for today');
         }
 
+        $this->appendComputedHours($attendance, now());
         return $this->success($attendance, 'Today\'s attendance');
     }
 
@@ -629,6 +632,11 @@ class AttendanceController extends BaseController
             ->where('date', $today)
             ->orderBy('clock_in_time', 'desc')
             ->get();
+
+        $now = now();
+        $attendance->each(function (Attendance $record) use ($now) {
+            $this->appendComputedHours($record, $now);
+        });
 
         return $this->success($attendance, 'Today\'s attendance retrieved');
     }
@@ -694,9 +702,9 @@ class AttendanceController extends BaseController
 
         // Recalculate total hours if times changed
         if ($attendance->clock_in_time && $attendance->clock_out_time) {
-            $totalMinutes = $attendance->clock_out_time->diffInMinutes($attendance->clock_in_time);
+            $totalMinutes = $attendance->clock_in_time->diffInMinutes($attendance->clock_out_time);
             if ($attendance->break_start && $attendance->break_end) {
-                $breakMinutes = $attendance->break_end->diffInMinutes($attendance->break_start);
+                $breakMinutes = $attendance->break_start->diffInMinutes($attendance->break_end);
                 $totalMinutes -= $breakMinutes;
             }
             $attendance->total_hours = round($totalMinutes / 60, 2);
@@ -772,5 +780,25 @@ class AttendanceController extends BaseController
         Storage::disk('public')->put($path, $imageData);
 
         return $path;
+    }
+
+    /**
+     * Attach computed hours and label for response payloads.
+     */
+    private function appendComputedHours(Attendance $attendance, Carbon $now): void
+    {
+        $hoursValue = null;
+        if ($attendance->total_hours !== null && (float) $attendance->total_hours > 0) {
+            $hoursValue = (float) $attendance->total_hours;
+        } elseif ($attendance->clock_in_time && $attendance->clock_out_time) {
+            $hoursValue = AttendanceHours::computeCompletedHours($attendance);
+        } elseif ($attendance->clock_in_time && !$attendance->clock_out_time) {
+            $hoursValue = AttendanceHours::estimateInProgressHours($attendance, $now);
+        }
+
+        if ($hoursValue !== null) {
+            $attendance->total_hours = $hoursValue;
+        }
+        $attendance->total_hours_label = AttendanceHours::formatHours($hoursValue ?? 0);
     }
 }

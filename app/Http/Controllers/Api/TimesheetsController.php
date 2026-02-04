@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\BaseController;
+use App\Helpers\AttendanceHours;
 use App\Models\Attendance;
 use App\Models\Intern;
 use Illuminate\Http\JsonResponse;
@@ -186,12 +187,7 @@ class TimesheetsController extends BaseController
         $records = $attendances->map(function ($attendance) use ($formatTimeManila, $todayManila) {
             $computedHours = null;
             if ($attendance->clock_in_time && $attendance->clock_out_time) {
-                $totalMinutes = $attendance->clock_out_time->diffInMinutes($attendance->clock_in_time);
-                if ($attendance->break_start && $attendance->break_end) {
-                    $totalMinutes -= $attendance->break_end->diffInMinutes($attendance->break_start);
-                }
-                $totalMinutes = max(0, $totalMinutes);
-                $computedHours = round($totalMinutes / 60, 2);
+                $computedHours = AttendanceHours::computeCompletedHours($attendance);
             } elseif ($attendance->clock_in_time && !$attendance->clock_out_time) {
                 $attendanceDate = $attendance->date->format('Y-m-d');
                 if ($attendanceDate === $todayManila) {
@@ -383,19 +379,7 @@ class TimesheetsController extends BaseController
      */
     private function formatHours(float $hours): string
     {
-        if ($hours <= 0) {
-            return '0h 0m';
-        }
-
-        $wholeHours = floor($hours);
-        $minutes = round(($hours - $wholeHours) * 60);
-
-        if ($minutes >= 60) {
-            $wholeHours += floor($minutes / 60);
-            $minutes = $minutes % 60;
-        }
-
-        return "{$wholeHours}h {$minutes}m";
+        return AttendanceHours::formatHours($hours);
     }
 
     /**
@@ -416,22 +400,7 @@ class TimesheetsController extends BaseController
      */
     private function estimateInProgressHours(Attendance $attendance): float
     {
-        $start = $attendance->clock_in_time;
-        if (!$start) {
-            return 0;
-        }
-
-        $end = now();
-        $totalMinutes = $end->diffInMinutes($start);
-
-        if ($attendance->break_start && $attendance->break_end) {
-            $totalMinutes -= $attendance->break_end->diffInMinutes($attendance->break_start);
-        } elseif ($attendance->break_start && !$attendance->break_end) {
-            $totalMinutes -= $end->diffInMinutes($attendance->break_start);
-        }
-
-        $totalMinutes = max(0, $totalMinutes);
-        return round($totalMinutes / 60, 2);
+        return AttendanceHours::estimateInProgressHours($attendance, now());
     }
 
     /**
@@ -439,17 +408,6 @@ class TimesheetsController extends BaseController
      */
     private function computeCompletedHours(Attendance $attendance): float
     {
-        $start = $attendance->clock_in_time;
-        $end = $attendance->clock_out_time;
-        if (!$start || !$end) {
-            return 0;
-        }
-
-        $totalMinutes = $end->diffInMinutes($start);
-        if ($attendance->break_start && $attendance->break_end) {
-            $totalMinutes -= $attendance->break_end->diffInMinutes($attendance->break_start);
-        }
-        $totalMinutes = max(0, $totalMinutes);
-        return round($totalMinutes / 60, 2);
+        return AttendanceHours::computeCompletedHours($attendance);
     }
 }
