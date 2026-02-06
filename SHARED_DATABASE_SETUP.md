@@ -126,6 +126,34 @@ If that runs without errors, this laptop is using the shared database.
 
 ---
 
+### Make phpMyAdmin show the same database on all laptops
+
+By default, phpMyAdmin on each laptop connects to **that laptop’s local MySQL** (127.0.0.1), so you see different data in phpMyAdmin. To have **everyone’s phpMyAdmin** open the **shared** database (same as Laravel):
+
+**On all 5 laptops** (including the host), edit phpMyAdmin’s config:
+
+1. Open: **`C:\xampp\phpMyAdmin\config.inc.php`**
+2. Find the line:  
+   `$cfg['Servers'][$i]['host'] = '127.0.0.1';`
+3. Change it to:  
+   `$cfg['Servers'][$i]['host'] = '192.168.254.103';`
+4. Save the file.
+
+Then when anyone opens **http://localhost/phpmyadmin**, they will connect to the shared MySQL on the host and see the same databases (including `peso` with the same seeded data).
+
+**Note:** The host laptop (192.168.254.103) is the one that must have MySQL running in XAMPP. The other 4 do not need MySQL running for phpMyAdmin to work—they will connect to the host.
+
+**If you get "Access denied for user 'pma'@'...' / Connection for controluser failed":**  
+You can either create the `pma` user on the host (see `setup_phpmyadmin_pma_remote.sql`) or **disable the control user** so the error goes away.
+
+**Option A – Disable control user (recommended if SQL fails with Aria error):**  
+On **each laptop** (all 5), edit **`C:\xampp\phpMyAdmin\config.inc.php`**. Comment out the block that starts with `$cfg['Servers'][$i]['controluser']` through `...['favorite']` (put `//` in front of each of those lines). Save. Then phpMyAdmin no longer uses the `pma` user; browsing, SQL, and export/import still work. The host’s config was already updated this way.
+
+**Option B – Create pma@'%' on the host:**  
+Run the SQL in `setup_phpmyadmin_pma_remote.sql` in phpMyAdmin → SQL. If you get error **#1030 "Read page with wrong checksum" (Aria)**, use Option A instead.
+
+---
+
 ### Troubleshooting: "I changed DB_HOST and ran config:clear but migrate still uses my local DB"
 
 On the **client laptop** (the one that should connect to the host), run these in **Command Prompt or PowerShell** from the **`peso-backend`** folder (the folder that contains `.env` and `artisan`):

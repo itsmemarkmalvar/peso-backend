@@ -14,13 +14,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Seed departments first
         $this->call(DepartmentSeeder::class);
-
-        // Seed admin and supervisor accounts (idempotent)
-        $this->call(CreateAdminAndCoordinatorSeeder::class);
-
-        // Seed comprehensive intern data with schedules, attendance, and leaves
-        $this->call(InternSeeder::class);
+        $this->call(AdminSeeder::class);
     }
 }
