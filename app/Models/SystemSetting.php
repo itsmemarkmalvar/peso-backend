@@ -12,6 +12,8 @@ class SystemSetting extends Model
         'grace_period_minutes',
         'verification_gps',
         'verification_selfie',
+        'default_lunch_break_start',
+        'default_lunch_break_end',
     ];
 
     protected $casts = [

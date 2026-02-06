@@ -223,6 +223,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Schedules
     Route::prefix('schedules')->group(function () {
         Route::get('/', [App\Http\Controllers\Api\Schedules\ScheduleController::class, 'index']);
+        Route::get('/default', [App\Http\Controllers\Api\Schedules\ScheduleController::class, 'defaultSchedule']);
         Route::post('/', [App\Http\Controllers\Api\Schedules\ScheduleController::class, 'store']);
         Route::get('/excused', [App\Http\Controllers\Api\Schedules\ScheduleController::class, 'excused']);
         Route::get('/{id}', [App\Http\Controllers\Api\Schedules\ScheduleController::class, 'show']);
