@@ -7,6 +7,7 @@ use App\Models\Intern;
 use App\Models\Notification;
 use App\Models\Schedule;
 use App\Models\SchoolSchedule;
+use App\Models\SystemSetting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +19,48 @@ class ScheduleController extends BaseController
     {
         // TODO: Implement list schedules
         return $this->success([], 'Schedules list');
+    }
+
+    /**
+     * Get the default work schedule (used for clock-in required times and work-schedules UI).
+     * Returns saved days/times from any active intern's schedules plus default lunch break.
+     */
+    public function defaultSchedule(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user->isAdmin() && !$user->isSupervisor()) {
+            return $this->forbidden('Only administrators and supervisors can view the default schedule');
+        }
+
+        $settings = SystemSetting::get();
+        $lunchStart = $settings->default_lunch_break_start ?? '12:00';
+        $lunchEnd = $settings->default_lunch_break_end ?? '13:00';
+
+        // Get schedule from one active intern (all share same default after assign — one row per day)
+        $oneIntern = Intern::where('is_active', true)->first();
+        $schedule = $oneIntern
+            ? Schedule::where('intern_id', $oneIntern->id)->orderBy('day_of_week')->get()
+            : collect();
+
+        if ($schedule->isEmpty()) {
+            return $this->success([
+                'days' => [],
+                'lunch_break_start' => $lunchStart,
+                'lunch_break_end' => $lunchEnd,
+            ], 'No default schedule set');
+        }
+
+        $days = $schedule->map(fn ($s) => [
+            'day_of_week' => (int) $s->day_of_week,
+            'start_time' => $s->start_time,
+            'end_time' => $s->end_time,
+        ])->values()->all();
+
+        return $this->success([
+            'days' => $days,
+            'lunch_break_start' => $lunchStart,
+            'lunch_break_end' => $lunchEnd,
+        ], 'Default schedule retrieved');
     }
 
     public function store(Request $request): JsonResponse
@@ -132,6 +175,13 @@ class ScheduleController extends BaseController
                     }
                 }
             }
+
+            // Persist default lunch break so work-schedules UI can load it
+            $settings = SystemSetting::get();
+            $settings->update([
+                'default_lunch_break_start' => $lunchBreakStart,
+                'default_lunch_break_end' => $lunchBreakEnd,
+            ]);
 
             DB::commit();
 

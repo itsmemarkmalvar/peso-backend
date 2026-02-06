@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Interns;
 
 use App\Http\Controllers\Api\BaseController;
 use App\Models\Intern;
+use App\Models\SchoolSchedule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -143,6 +144,31 @@ class InternController extends BaseController
                 'is_active' => true,
             ]
         );
+
+        // Sync school_schedules from weekly_availability for "Excused due to school schedule"
+        // day_of_week: 0=Sunday, 1=Monday, ..., 5=Friday, 6=Saturday
+        $weekdayToDayOfWeek = [
+            'monday' => 1,
+            'tuesday' => 2,
+            'wednesday' => 3,
+            'thursday' => 4,
+            'friday' => 5,
+        ];
+        $schoolDays = [];
+        foreach ($weekdayToDayOfWeek as $dayKey => $dayOfWeek) {
+            $value = $validated['weekly_availability'][$dayKey] ?? 'available';
+            if ($value === 'not_available' || $value === 'half_day') {
+                $schoolDays[] = $dayOfWeek;
+            }
+        }
+        SchoolSchedule::where('intern_id', $intern->id)->whereBetween('day_of_week', [1, 5])->delete();
+        foreach ($schoolDays as $dayOfWeek) {
+            SchoolSchedule::create([
+                'intern_id' => $intern->id,
+                'day_of_week' => $dayOfWeek,
+                'is_active' => true,
+            ]);
+        }
 
         return $this->success(
             $this->formatInternProfile($intern),
