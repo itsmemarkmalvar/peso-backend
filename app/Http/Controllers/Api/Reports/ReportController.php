@@ -55,12 +55,12 @@ class ReportController extends BaseController
                 return [
                     'date' => $record->date->format('Y-m-d'),
                     'day' => $record->date->format('l'),
-                    'intern_name' => $record->intern?->full_name ?? 'Unknown',
-                    'student_id' => $record->intern?->student_id ?? '',
+                    'intern_name' => $record->intern->full_name ?? 'Unknown',
+                    'student_id' => $record->intern->student_id ?? '',
                     'clock_in' => $record->clock_in_time?->format('H:i:s'),
                     'clock_out' => $record->clock_out_time?->format('H:i:s'),
                     'total_hours' => $record->total_hours ?? 0,
-                    'status' => is_object($record->status) ? $record->status->value : (string) $record->status,
+                    'status' => $record->status->value,
                     'is_late' => $record->is_late,
                     'is_undertime' => $record->is_undertime,
                     'is_overtime' => $record->is_overtime,
@@ -185,11 +185,11 @@ class ReportController extends BaseController
         $report = $attendance->map(function ($record) {
             return [
                 'date' => $record->date->format('Y-m-d'),
-                'intern_name' => $record->intern?->full_name ?? 'Unknown',
-                'student_id' => $record->intern?->student_id ?? '',
+                'intern_name' => $record->intern->full_name ?? 'Unknown',
+                'student_id' => $record->intern->student_id ?? '',
                 'clock_in' => $record->clock_in_time?->format('H:i:s'),
                 'clock_out' => $record->clock_out_time?->format('H:i:s'),
-                'status' => is_object($record->status) ? $record->status->value : (string) $record->status,
+                'status' => $record->status->value,
                 'is_late' => $record->is_late,
                 'is_undertime' => $record->is_undertime,
                 'is_overtime' => $record->is_overtime,
@@ -239,14 +239,14 @@ class ReportController extends BaseController
 
         if ($groupBy === 'intern') {
             $report = $attendance->groupBy('intern_id')->map(function ($records, $internId) {
-                $intern = $records->first()?->intern;
+                $intern = $records->first()->intern;
                 $totalHours = $records->sum('total_hours');
                 $totalDays = $records->count();
                 
                 return [
                     'intern_id' => $internId,
-                    'intern_name' => $intern?->full_name ?? 'Unknown',
-                    'student_id' => $intern?->student_id ?? '',
+                    'intern_name' => $intern->full_name ?? 'Unknown',
+                    'student_id' => $intern->student_id ?? '',
                     'total_hours' => round($totalHours, 2),
                     'total_days' => $totalDays,
                     'average_hours_per_day' => round($totalHours / max($totalDays, 1), 2),
@@ -254,7 +254,7 @@ class ReportController extends BaseController
             })->values();
         } elseif ($groupBy === 'company') {
             $report = $attendance->groupBy(function ($record) {
-                return $record->intern?->company_name ?? 'Unknown';
+                return $record->intern->company_name ?? 'Unknown';
             })->map(function ($records, $company) {
                 $totalHours = $records->sum('total_hours');
                 $totalDays = $records->count();
@@ -273,8 +273,8 @@ class ReportController extends BaseController
             $report = $attendance->map(function ($record) {
                 return [
                     'date' => $record->date->format('Y-m-d'),
-                    'intern_name' => $record->intern?->full_name ?? 'Unknown',
-                    'student_id' => $record->intern?->student_id ?? '',
+                    'intern_name' => $record->intern->full_name ?? 'Unknown',
+                    'student_id' => $record->intern->student_id ?? '',
                     'hours' => $record->total_hours ?? 0,
                 ];
             });
@@ -670,16 +670,15 @@ class ReportController extends BaseController
         </tr>';
         
         foreach ($report as $record) {
-            $record = is_array($record) ? $record : (array) $record;
             $html .= '<tr>';
-            $html .= '<td>' . htmlspecialchars((string) ($record['date'] ?? '')) . '</td>';
-            $html .= '<td>' . htmlspecialchars((string) ($record['day'] ?? '')) . '</td>';
-            $html .= '<td>' . htmlspecialchars((string) ($record['intern_name'] ?? '')) . '</td>';
-            $html .= '<td>' . htmlspecialchars((string) ($record['student_id'] ?? '')) . '</td>';
-            $html .= '<td>' . htmlspecialchars((string) ($record['clock_in'] ?? 'N/A')) . '</td>';
-            $html .= '<td>' . htmlspecialchars((string) ($record['clock_out'] ?? 'N/A')) . '</td>';
-            $html .= '<td>' . htmlspecialchars((string) ($record['total_hours'] ?? 0)) . '</td>';
-            $html .= '<td>' . htmlspecialchars(ucfirst((string) ($record['status'] ?? ''))) . '</td>';
+            $html .= '<td>' . htmlspecialchars($record['date']) . '</td>';
+            $html .= '<td>' . htmlspecialchars($record['day']) . '</td>';
+            $html .= '<td>' . htmlspecialchars($record['intern_name']) . '</td>';
+            $html .= '<td>' . htmlspecialchars($record['student_id']) . '</td>';
+            $html .= '<td>' . htmlspecialchars($record['clock_in'] ?? 'N/A') . '</td>';
+            $html .= '<td>' . htmlspecialchars($record['clock_out'] ?? 'N/A') . '</td>';
+            $html .= '<td>' . htmlspecialchars($record['total_hours']) . '</td>';
+            $html .= '<td>' . htmlspecialchars(ucfirst($record['status'])) . '</td>';
             $html .= '</tr>';
         }
         
@@ -709,15 +708,14 @@ class ReportController extends BaseController
         </tr>';
         
         foreach ($report as $record) {
-            $record = is_array($record) ? $record : (array) $record;
             $html .= '<tr>';
-            $html .= '<td>' . htmlspecialchars((string) ($record['date'] ?? '')) . '</td>';
-            $html .= '<td>' . htmlspecialchars((string) ($record['intern_name'] ?? '')) . '</td>';
-            $html .= '<td>' . htmlspecialchars((string) ($record['student_id'] ?? '')) . '</td>';
-            $html .= '<td>' . htmlspecialchars((string) ($record['clock_in'] ?? 'N/A')) . '</td>';
-            $html .= '<td>' . htmlspecialchars((string) ($record['clock_out'] ?? 'N/A')) . '</td>';
-            $html .= '<td>' . htmlspecialchars(ucfirst((string) ($record['status'] ?? ''))) . '</td>';
-            $html .= '<td>' . (!empty($record['is_late']) ? 'Yes' : 'No') . '</td>';
+            $html .= '<td>' . htmlspecialchars($record['date']) . '</td>';
+            $html .= '<td>' . htmlspecialchars($record['intern_name']) . '</td>';
+            $html .= '<td>' . htmlspecialchars($record['student_id']) . '</td>';
+            $html .= '<td>' . htmlspecialchars($record['clock_in'] ?? 'N/A') . '</td>';
+            $html .= '<td>' . htmlspecialchars($record['clock_out'] ?? 'N/A') . '</td>';
+            $html .= '<td>' . htmlspecialchars(ucfirst($record['status'])) . '</td>';
+            $html .= '<td>' . ($record['is_late'] ? 'Yes' : 'No') . '</td>';
             $html .= '</tr>';
         }
         
@@ -747,13 +745,12 @@ class ReportController extends BaseController
                 <th>Intern Name</th><th>Student ID</th><th>Total Hours</th><th>Total Days</th><th>Average Hours/Day</th>
             </tr>';
             foreach ($report as $record) {
-                $record = is_array($record) ? $record : (array) $record;
                 $html .= '<tr>';
-                $html .= '<td>' . htmlspecialchars((string) ($record['intern_name'] ?? '')) . '</td>';
-                $html .= '<td>' . htmlspecialchars((string) ($record['student_id'] ?? '')) . '</td>';
-                $html .= '<td>' . htmlspecialchars((string) ($record['total_hours'] ?? '')) . '</td>';
-                $html .= '<td>' . htmlspecialchars((string) ($record['total_days'] ?? '')) . '</td>';
-                $html .= '<td>' . htmlspecialchars((string) ($record['average_hours_per_day'] ?? '')) . '</td>';
+                $html .= '<td>' . htmlspecialchars($record['intern_name']) . '</td>';
+                $html .= '<td>' . htmlspecialchars($record['student_id']) . '</td>';
+                $html .= '<td>' . htmlspecialchars($record['total_hours']) . '</td>';
+                $html .= '<td>' . htmlspecialchars($record['total_days']) . '</td>';
+                $html .= '<td>' . htmlspecialchars($record['average_hours_per_day']) . '</td>';
                 $html .= '</tr>';
             }
         } elseif ($groupBy === 'company') {
@@ -761,13 +758,12 @@ class ReportController extends BaseController
                 <th>Company</th><th>Total Hours</th><th>Total Days</th><th>Intern Count</th><th>Average Hours/Intern</th>
             </tr>';
             foreach ($report as $record) {
-                $record = is_array($record) ? $record : (array) $record;
                 $html .= '<tr>';
-                $html .= '<td>' . htmlspecialchars((string) ($record['company'] ?? '')) . '</td>';
-                $html .= '<td>' . htmlspecialchars((string) ($record['total_hours'] ?? '')) . '</td>';
-                $html .= '<td>' . htmlspecialchars((string) ($record['total_days'] ?? '')) . '</td>';
-                $html .= '<td>' . htmlspecialchars((string) ($record['intern_count'] ?? '')) . '</td>';
-                $html .= '<td>' . htmlspecialchars((string) ($record['average_hours_per_intern'] ?? '')) . '</td>';
+                $html .= '<td>' . htmlspecialchars($record['company']) . '</td>';
+                $html .= '<td>' . htmlspecialchars($record['total_hours']) . '</td>';
+                $html .= '<td>' . htmlspecialchars($record['total_days']) . '</td>';
+                $html .= '<td>' . htmlspecialchars($record['intern_count']) . '</td>';
+                $html .= '<td>' . htmlspecialchars($record['average_hours_per_intern']) . '</td>';
                 $html .= '</tr>';
             }
         } else {
@@ -775,12 +771,11 @@ class ReportController extends BaseController
                 <th>Date</th><th>Intern Name</th><th>Student ID</th><th>Hours</th>
             </tr>';
             foreach ($report as $record) {
-                $record = is_array($record) ? $record : (array) $record;
                 $html .= '<tr>';
-                $html .= '<td>' . htmlspecialchars((string) ($record['date'] ?? '')) . '</td>';
-                $html .= '<td>' . htmlspecialchars((string) ($record['intern_name'] ?? '')) . '</td>';
-                $html .= '<td>' . htmlspecialchars((string) ($record['student_id'] ?? '')) . '</td>';
-                $html .= '<td>' . htmlspecialchars((string) ($record['hours'] ?? '')) . '</td>';
+                $html .= '<td>' . htmlspecialchars($record['date']) . '</td>';
+                $html .= '<td>' . htmlspecialchars($record['intern_name']) . '</td>';
+                $html .= '<td>' . htmlspecialchars($record['student_id']) . '</td>';
+                $html .= '<td>' . htmlspecialchars($record['hours']) . '</td>';
                 $html .= '</tr>';
             }
         }

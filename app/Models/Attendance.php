@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\AttendanceStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -50,7 +49,6 @@ class Attendance extends Model
         'is_undertime' => 'boolean',
         'is_overtime' => 'boolean',
         'approved_at' => 'datetime',
-        'status' => AttendanceStatus::class,
     ];
 
     /**
