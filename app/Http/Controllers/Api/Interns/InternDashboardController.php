@@ -236,6 +236,17 @@ class InternDashboardController extends BaseController
         // Limit recent activity to 5 items
         $recentActivity = array_slice($recentActivity, 0, 5);
 
+        // Clock-in allowed only until 30 min after scheduled start (e.g. 8:30 when start is 8:00)
+        $clockInCutoff = null;
+        if ($todaySchedule) {
+            $scheduledStart = Carbon::createFromTimeString($todaySchedule->start_time);
+            $cutoff = $scheduledStart->copy()->addMinutes(30);
+            $clockInCutoff = [
+                'time' => $cutoff->format('H:i:s'),
+                'label' => $cutoff->format('g:i A'),
+            ];
+        }
+
         return $this->success([
             'header' => [
                 'currentTime' => $currentTime,
@@ -245,6 +256,7 @@ class InternDashboardController extends BaseController
                 'statusTone' => $statusTone,
                 'shiftLabel' => $shiftLabel,
             ],
+            'clock_in_cutoff' => $clockInCutoff,
             'snapshot' => [
                 'lastClock' => $lastClock,
                 'breakLabel' => $breakLabel,

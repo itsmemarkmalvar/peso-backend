@@ -131,19 +131,33 @@ class AttendanceController extends BaseController
             $photoPath = $this->saveBase64Image($request->photo, 'clock-in');
         }
 
+        // Intern clock-in window: allowed until 8:30 AM (Asia/Manila); recorded time is 8:00 AM
+        $manilaTz = config('app.timezone', 'Asia/Manila');
+        $nowManila = now($manilaTz);
+        $cutoffToday = $nowManila->copy()->startOfDay()->setTime(8, 30, 0);
+        $recordedClockInTime = $nowManila->copy()->startOfDay()->setTime(8, 0, 0);
+
+        if ($nowManila->gt($cutoffToday)) {
+            return $this->error(
+                'Clock-in is only allowed until 8:30 AM. You cannot clock in after 8:30 AM.',
+                400
+            );
+        }
+
         // Get today's schedule
-        $dayOfWeek = now()->dayOfWeek;
+        $dayOfWeek = $nowManila->dayOfWeek;
         $schedule = Schedule::where('intern_id', $intern->id)
             ->where('day_of_week', $dayOfWeek)
             ->where('is_active', true)
             ->first();
 
-        $clockInTime = now();
+        // Store 8:00 AM as clock-in time when clocking in early or up to 8:30 AM
+        $clockInTime = $recordedClockInTime;
         $isLate = false;
 
         // Check if late based on schedule (grace period from system settings)
         if ($schedule) {
-            $scheduledStart = now()->setTimeFromTimeString($schedule->start_time);
+            $scheduledStart = $nowManila->copy()->setTimeFromTimeString($schedule->start_time);
             $isLate = $clockInTime->gt($scheduledStart->addMinutes($settings->grace_period_minutes));
         }
 
