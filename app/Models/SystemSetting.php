@@ -14,6 +14,8 @@ class SystemSetting extends Model
         'verification_selfie',
         'default_lunch_break_start',
         'default_lunch_break_end',
+        'default_schedule_name',
+        'default_admin_notes',
     ];
 
     protected $casts = [
