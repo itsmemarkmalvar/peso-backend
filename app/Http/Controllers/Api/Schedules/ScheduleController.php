@@ -33,8 +33,10 @@ class ScheduleController extends BaseController
         }
 
         $settings = SystemSetting::get();
+        $name = $settings->default_schedule_name ?? null;
         $lunchStart = $settings->default_lunch_break_start ?? '12:00';
         $lunchEnd = $settings->default_lunch_break_end ?? '13:00';
+        $adminNotes = $settings->default_admin_notes ?? null;
 
         // Get schedule from one active intern (all share same default after assign — one row per day)
         $oneIntern = Intern::where('is_active', true)->first();
@@ -45,8 +47,10 @@ class ScheduleController extends BaseController
         if ($schedule->isEmpty()) {
             return $this->success([
                 'days' => [],
+                'name' => $name,
                 'lunch_break_start' => $lunchStart,
                 'lunch_break_end' => $lunchEnd,
+                'admin_notes' => $adminNotes,
             ], 'No default schedule set');
         }
 
@@ -58,8 +62,10 @@ class ScheduleController extends BaseController
 
         return $this->success([
             'days' => $days,
+            'name' => $name,
             'lunch_break_start' => $lunchStart,
             'lunch_break_end' => $lunchEnd,
+            'admin_notes' => $adminNotes,
         ], 'Default schedule retrieved');
     }
 
@@ -111,6 +117,7 @@ class ScheduleController extends BaseController
         }
 
         $days = $request->input('days');
+        $scheduleName = $request->input('name');
         $lunchBreakStart = $request->input('lunch_break_start');
         $lunchBreakEnd = $request->input('lunch_break_end');
         $adminNotes = $request->input('admin_notes');
@@ -176,11 +183,13 @@ class ScheduleController extends BaseController
                 }
             }
 
-            // Persist default lunch break so work-schedules UI can load it
+            // Persist default schedule (name, lunch break, admin notes) so work-schedules UI can load it
             $settings = SystemSetting::get();
             $settings->update([
                 'default_lunch_break_start' => $lunchBreakStart,
                 'default_lunch_break_end' => $lunchBreakEnd,
+                'default_schedule_name' => $scheduleName !== null && $scheduleName !== '' ? $scheduleName : null,
+                'default_admin_notes' => $adminNotes !== null && $adminNotes !== '' ? $adminNotes : null,
             ]);
 
             DB::commit();
