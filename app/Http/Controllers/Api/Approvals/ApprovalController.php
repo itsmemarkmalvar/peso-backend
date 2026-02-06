@@ -59,7 +59,7 @@ class ApprovalController extends BaseController
                 'intern_student_id' => $attendance->intern->student_id ?? '',
                 'type' => $this->determineApprovalType($attendance),
                 'reason_title' => $this->getReasonTitle($attendance),
-                'status' => ucfirst($attendance->status->value),
+                'status' => is_object($attendance->status) ? ucfirst($attendance->status->value) : ucfirst((string) $attendance->status),
                 'date' => $attendance->date->format('Y-m-d'),
                 'clock_in_time' => $attendance->clock_in_time?->format('H:i:s'),
                 'clock_out_time' => $attendance->clock_out_time?->format('H:i:s'),
