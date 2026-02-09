@@ -163,12 +163,11 @@ class RegistrationRequestsController extends BaseController
         $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000');
         $invitationUrl = "{$frontendUrl}/invitation/accept?token={$invitationToken}";
 
-        // Send invitation email
+        // Queue invitation email so approval returns immediately (avoids SMTP timeout / 30s fatal)
         try {
-            Mail::to($user->email)->send(new InvitationMail($user, $invitationUrl, $requestedRole));
+            Mail::to($user->email)->queue(new InvitationMail($user, $invitationUrl, $requestedRole));
         } catch (\Exception $e) {
-            // Log error but don't fail the approval
-            \Log::error('Failed to send invitation email: ' . $e->getMessage());
+            Log::error('Failed to queue invitation email: ' . $e->getMessage());
         }
 
         return $this->success([
@@ -176,7 +175,9 @@ class RegistrationRequestsController extends BaseController
             'role' => $requestedRole,
             'department_id' => $validated['department_id'],
             'invitation_sent' => true,
-        ], 'Registration request approved. Invitation email sent successfully.');
+        ], 'Registration request approved. Invitation email has been queued.');
+    } catch (ValidationException $e) {
+        return $this->validationError($e->errors(), $e->getMessage());
     } catch (QueryException $e) {
         Log::error('Registration request approve failed: ' . $e->getMessage());
         return $this->error($this->getDatabaseErrorMessage($e), 503);
@@ -214,6 +215,8 @@ class RegistrationRequestsController extends BaseController
             ]);
 
             return $this->success($registrationRequest, 'Registration request rejected successfully.');
+        } catch (ValidationException $e) {
+            return $this->validationError($e->errors(), $e->getMessage());
         } catch (QueryException $e) {
             Log::error('Registration request reject failed: ' . $e->getMessage());
             return $this->error($this->getDatabaseErrorMessage($e), 503);
