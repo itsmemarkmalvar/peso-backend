@@ -81,7 +81,9 @@ class AttendanceController extends BaseController
             return $this->validationError($validator->errors());
         }
 
-        $today = now()->startOfDay();
+        // Use Asia/Manila so attendance date matches timesheet week boundaries (same timezone for admin & intern views)
+        $manilaTz = 'Asia/Manila';
+        $today = Carbon::now($manilaTz)->startOfDay();
         
         // Check if already clocked in today
         $existing = Attendance::where('intern_id', $intern->id)
@@ -131,7 +133,7 @@ class AttendanceController extends BaseController
             $photoPath = $this->saveBase64Image($request->photo, 'clock-in');
         }
 
-        // Intern clock-in window: allowed until 30 minutes after scheduled start (Asia/Manila)
+        // Intern clock-in window: allowed until scheduled start + grace period (Asia/Manila)
         $manilaTz = config('app.timezone', 'Asia/Manila');
         $nowManila = now($manilaTz);
 
@@ -145,25 +147,27 @@ class AttendanceController extends BaseController
         $scheduledStart = $schedule
             ? $nowManila->copy()->setTimeFromTimeString($schedule->start_time)
             : $nowManila->copy()->startOfDay()->setTime(8, 0, 0);
-        $cutoffToday = $scheduledStart->copy()->addMinutes(30);
+
+        // Use grace period from system settings for clock-in cutoff
+        $graceMinutes = $settings->grace_period_minutes ?? 10;
+        $cutoffToday = $scheduledStart->copy()->addMinutes($graceMinutes);
 
         if ($nowManila->gt($cutoffToday)) {
             $cutoffLabel = $cutoffToday->format('g:i A');
             return $this->error(
-                "Clock-in is only allowed until {$cutoffLabel}. You cannot clock in after {$cutoffLabel}.",
+                "Clock-in is only allowed until {$cutoffLabel} (scheduled start + {$graceMinutes} min grace period). You cannot clock in after {$cutoffLabel}.",
                 400
             );
         }
 
-        // Store scheduled start time when clocking in early or up to the cutoff
-        $clockInTime = $scheduledStart->copy();
-        $isLate = false;
+        // Record actual clock-in time: use scheduled start if early, otherwise use actual time
+        $clockInTime = $nowManila->lt($scheduledStart)
+            ? $scheduledStart->copy()
+            : $nowManila->copy();
 
         // Check if late based on schedule (grace period from system settings)
-        if ($schedule) {
-            $scheduledStart = $nowManila->copy()->setTimeFromTimeString($schedule->start_time);
-            $isLate = $clockInTime->gt($scheduledStart->addMinutes($settings->grace_period_minutes));
-        }
+        $lateCutoff = $scheduledStart->copy()->addMinutes($graceMinutes);
+        $isLate = $clockInTime->gt($lateCutoff);
 
         try {
             DB::beginTransaction();
@@ -275,7 +279,8 @@ class AttendanceController extends BaseController
             return $this->validationError($validator->errors());
         }
 
-        $today = now()->startOfDay();
+        // Use Asia/Manila so attendance date matches timesheet week boundaries
+        $today = Carbon::now('Asia/Manila')->startOfDay();
         
         // Get today's attendance
         $attendance = Attendance::where('intern_id', $intern->id)

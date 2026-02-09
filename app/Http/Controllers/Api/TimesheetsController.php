@@ -14,6 +14,11 @@ use Illuminate\Support\Facades\DB;
 class TimesheetsController extends BaseController
 {
     /**
+     * All timesheet views (index, show, internWeekly) use the same source: Attendance records.
+     * Attendance date is stored in Asia/Manila so week boundaries match for admin and intern.
+     */
+
+    /**
      * Get weekly timesheet data for all interns (admin view)
      * Returns data grouped by intern with daily hours for the selected week
      */

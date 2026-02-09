@@ -37,6 +37,7 @@ class ScheduleController extends BaseController
         $lunchStart = $settings->default_lunch_break_start ?? '12:00';
         $lunchEnd = $settings->default_lunch_break_end ?? '13:00';
         $adminNotes = $settings->default_admin_notes ?? null;
+        $gracePeriodMinutes = $settings->grace_period_minutes ?? 10;
 
         // Get schedule from one active intern (all share same default after assign — one row per day)
         $oneIntern = Intern::where('is_active', true)->first();
@@ -51,6 +52,7 @@ class ScheduleController extends BaseController
                 'lunch_break_start' => $lunchStart,
                 'lunch_break_end' => $lunchEnd,
                 'admin_notes' => $adminNotes,
+                'grace_period_minutes' => $gracePeriodMinutes,
             ], 'No default schedule set');
         }
 
@@ -66,6 +68,7 @@ class ScheduleController extends BaseController
             'lunch_break_start' => $lunchStart,
             'lunch_break_end' => $lunchEnd,
             'admin_notes' => $adminNotes,
+            'grace_period_minutes' => $gracePeriodMinutes,
         ], 'Default schedule retrieved');
     }
 
