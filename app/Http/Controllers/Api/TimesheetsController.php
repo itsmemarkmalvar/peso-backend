@@ -360,7 +360,7 @@ class TimesheetsController extends BaseController
             $entries[] = [
                 'day' => $date->format('D'),
                 'hours' => $hoursValue !== null ? $this->formatHours($hoursValue) : $this->formatHours(0),
-                'status' => $this->formatStatusLabel($attendance?->status),
+                'status' => $this->formatStatusLabel($attendance),
             ];
         }
 
@@ -385,14 +385,12 @@ class TimesheetsController extends BaseController
     /**
      * Normalize attendance status to title case for intern-facing labels.
      */
-    private function formatStatusLabel($status): string
+    private function formatStatusLabel(?Attendance $attendance): string
     {
-        $normalized = strtolower((string) $status);
-        return match ($normalized) {
-            'approved' => 'Approved',
-            'rejected' => 'Rejected',
-            default => 'Pending',
-        };
+        if (!$attendance || !$attendance->clock_in_time) {
+            return 'No record';
+        }
+        return 'Recorded';
     }
 
     /**
