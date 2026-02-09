@@ -51,7 +51,7 @@ class TimesheetsController extends BaseController
 
         // Get all active interns
         $interns = Intern::where('is_active', true)
-            ->with('user')
+            ->with(['user', 'department'])
             ->get();
 
         // Get attendance records for the week
@@ -123,6 +123,7 @@ class TimesheetsController extends BaseController
                 'intern_id' => $intern->id,
                 'intern' => $intern->full_name ?? $intern->user->name ?? 'Unknown',
                 'company' => $intern->company_name ?? '-',
+                'department_name' => $intern->department?->name,
                 'id' => $intern->student_id ?? "INT-{$intern->id}",
                 'days' => $days,
                 'total' => $this->formatHours($weekTotal),

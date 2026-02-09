@@ -46,7 +46,7 @@ class InternController extends BaseController
     {
         $user = $request->user();
         $query = Intern::query()
-            ->with(['user', 'supervisor'])
+            ->with(['user', 'supervisor', 'department'])
             ->orderBy('full_name');
 
         if ($user && $user->isSupervisor()) {
@@ -71,6 +71,11 @@ class InternController extends BaseController
             ->limit(200)
             ->get()
             ->map(function (Intern $intern) {
+                $user = $intern->user;
+                $role = $user && $user->role instanceof \App\Enums\UserRole
+                    ? $user->role->value
+                    : (is_string(optional($user)->role) ? (string) $user->role : 'intern');
+
                 return [
                     'id' => $intern->id,
                     'user_id' => $intern->user_id,
@@ -80,10 +85,13 @@ class InternController extends BaseController
                     'course' => $intern->course,
                     'year_level' => $intern->year_level,
                     'company_name' => $intern->company_name,
+                    'department_id' => $intern->department_id,
+                    'department_name' => $intern->department?->name,
                     'supervisor_name' => $intern->supervisor_name,
                     'supervisor_user_id' => $intern->supervisor_user_id,
                     'supervisor_email' => $intern->supervisor?->email ?? $intern->supervisor_email,
                     'is_active' => (bool) $intern->is_active,
+                    'role' => $role,
                 ];
             });
 

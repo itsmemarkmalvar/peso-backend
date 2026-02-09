@@ -269,6 +269,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/recent-activity', [App\Http\Controllers\Api\Dashboard\DashboardController::class, 'recentActivity']);
     });
 
+    // Admin filter options (roles from UserRole enum, groups from distinct company_name)
+    Route::get('/admin/filter-options', [App\Http\Controllers\Api\FilterOptionsController::class, 'index']);
+
     // Departments
     Route::prefix('departments')->group(function () {
         Route::get('/', [App\Http\Controllers\Api\DepartmentsController::class, 'index']);

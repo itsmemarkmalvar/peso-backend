@@ -12,6 +12,7 @@ class Intern extends Model
     protected $fillable = [
         'user_id',
         'supervisor_user_id',
+        'department_id',
         'student_id',
         'full_name',
         'school',
@@ -49,6 +50,11 @@ class Intern extends Model
     public function supervisor()
     {
         return $this->belongsTo(User::class, 'supervisor_user_id');
+    }
+
+    public function department()
+    {
+        return $this->belongsTo(Department::class);
     }
 
     /**
