@@ -7,6 +7,7 @@ use App\Helpers\AttendanceHours;
 use App\Models\Attendance;
 use App\Models\Intern;
 use App\Models\Schedule;
+use App\Models\SystemSetting;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -236,11 +237,13 @@ class InternDashboardController extends BaseController
         // Limit recent activity to 5 items
         $recentActivity = array_slice($recentActivity, 0, 5);
 
-        // Clock-in allowed only until 30 min after scheduled start (e.g. 8:30 when start is 8:00)
+        // Clock-in allowed only until scheduled start + grace period
         $clockInCutoff = null;
         if ($todaySchedule) {
             $scheduledStart = Carbon::createFromTimeString($todaySchedule->start_time);
-            $cutoff = $scheduledStart->copy()->addMinutes(30);
+            $settings = SystemSetting::get();
+            $graceMinutes = $settings?->grace_period_minutes ?? 10;
+            $cutoff = $scheduledStart->copy()->addMinutes($graceMinutes);
             $clockInCutoff = [
                 'time' => $cutoff->format('H:i:s'),
                 'label' => $cutoff->format('g:i A'),
