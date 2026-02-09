@@ -17,7 +17,6 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use Dompdf\Dompdf;
-use Dompdf\Options;
 
 class ReportController extends BaseController
 {
@@ -55,12 +54,12 @@ class ReportController extends BaseController
                 return [
                     'date' => $record->date->format('Y-m-d'),
                     'day' => $record->date->format('l'),
-                    'intern_name' => $record->intern->full_name ?? 'Unknown',
-                    'student_id' => $record->intern->student_id ?? '',
+                    'intern_name' => $record->intern?->full_name ?? 'Unknown',
+                    'student_id' => $record->intern?->student_id ?? '',
                     'clock_in' => $record->clock_in_time?->format('H:i:s'),
                     'clock_out' => $record->clock_out_time?->format('H:i:s'),
                     'total_hours' => $record->total_hours ?? 0,
-                    'status' => $record->status->value,
+                    'status' => is_object($record->status) ? $record->status->value : (string) ($record->status ?? ''),
                     'is_late' => $record->is_late,
                     'is_undertime' => $record->is_undertime,
                     'is_overtime' => $record->is_overtime,
@@ -185,11 +184,11 @@ class ReportController extends BaseController
         $report = $attendance->map(function ($record) {
             return [
                 'date' => $record->date->format('Y-m-d'),
-                'intern_name' => $record->intern->full_name ?? 'Unknown',
-                'student_id' => $record->intern->student_id ?? '',
+                'intern_name' => $record->intern?->full_name ?? 'Unknown',
+                'student_id' => $record->intern?->student_id ?? '',
                 'clock_in' => $record->clock_in_time?->format('H:i:s'),
                 'clock_out' => $record->clock_out_time?->format('H:i:s'),
-                'status' => $record->status->value,
+                'status' => is_object($record->status) ? $record->status->value : (string) ($record->status ?? ''),
                 'is_late' => $record->is_late,
                 'is_undertime' => $record->is_undertime,
                 'is_overtime' => $record->is_overtime,
@@ -239,14 +238,14 @@ class ReportController extends BaseController
 
         if ($groupBy === 'intern') {
             $report = $attendance->groupBy('intern_id')->map(function ($records, $internId) {
-                $intern = $records->first()->intern;
+                $intern = $records->first()?->intern;
                 $totalHours = $records->sum('total_hours');
                 $totalDays = $records->count();
                 
                 return [
                     'intern_id' => $internId,
-                    'intern_name' => $intern->full_name ?? 'Unknown',
-                    'student_id' => $intern->student_id ?? '',
+                    'intern_name' => $intern?->full_name ?? 'Unknown',
+                    'student_id' => $intern?->student_id ?? '',
                     'total_hours' => round($totalHours, 2),
                     'total_days' => $totalDays,
                     'average_hours_per_day' => round($totalHours / max($totalDays, 1), 2),
@@ -254,7 +253,7 @@ class ReportController extends BaseController
             })->values();
         } elseif ($groupBy === 'company') {
             $report = $attendance->groupBy(function ($record) {
-                return $record->intern->company_name ?? 'Unknown';
+                return $record->intern?->company_name ?? 'Unknown';
             })->map(function ($records, $company) {
                 $totalHours = $records->sum('total_hours');
                 $totalDays = $records->count();
@@ -273,8 +272,8 @@ class ReportController extends BaseController
             $report = $attendance->map(function ($record) {
                 return [
                     'date' => $record->date->format('Y-m-d'),
-                    'intern_name' => $record->intern->full_name ?? 'Unknown',
-                    'student_id' => $record->intern->student_id ?? '',
+                    'intern_name' => $record->intern?->full_name ?? 'Unknown',
+                    'student_id' => $record->intern?->student_id ?? '',
                     'hours' => $record->total_hours ?? 0,
                 ];
             });
@@ -602,12 +601,14 @@ class ReportController extends BaseController
     private function generatePDF(string $html, string $filename)
     {
         try {
-            $options = new Options();
-            $options->set('isHtml5ParserEnabled', true);
-            $options->set('isRemoteEnabled', true);
-            $options->set('defaultFont', 'Arial');
-            
-            $dompdf = new Dompdf($options);
+            if (!class_exists(\Dompdf\Dompdf::class)) {
+                Log::error('PDF generation failed: Dompdf class not found. Run "composer install" in the backend.');
+                return $this->error('PDF export is not available: required package not installed. Run "composer install" in peso-backend.', 503);
+            }
+            $dompdf = new Dompdf();
+            $dompdf->getOptions()->set('isHtml5ParserEnabled', true);
+            $dompdf->getOptions()->set('isRemoteEnabled', true);
+            $dompdf->getOptions()->setDefaultFont('Arial');
             $dompdf->loadHtml($html);
             $dompdf->setPaper('A4', 'landscape');
             $dompdf->render();
@@ -619,7 +620,7 @@ class ReportController extends BaseController
                 'Content-Disposition' => 'attachment; filename="' . $filename . '"',
                 'Content-Length' => strlen($pdfContent),
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('PDF generation failed: ' . $e->getMessage());
             Log::error('Stack trace: ' . $e->getTraceAsString());
             return $this->error('Failed to generate PDF: ' . $e->getMessage(), 500);
