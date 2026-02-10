@@ -90,6 +90,9 @@ class InternController extends BaseController
                     'supervisor_name' => $intern->supervisor_name,
                     'supervisor_user_id' => $intern->supervisor_user_id,
                     'supervisor_email' => $intern->supervisor?->email ?? $intern->supervisor_email,
+                    'required_hours' => $intern->required_hours === null
+                        ? null
+                        : (int) $intern->required_hours,
                     'is_active' => (bool) $intern->is_active,
                     'role' => $role,
                 ];
