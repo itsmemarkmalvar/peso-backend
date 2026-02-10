@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
@@ -12,18 +13,20 @@ class InvitationMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public $user;
-    public $invitationUrl;
-    public $role;
+    /** @var int User id – resolved when the job runs (avoids ModelNotFoundException if user was deleted) */
+    public int $userId;
+    public string $invitationUrl;
+    public string $role;
     public $logoBase64;
     public $logoPath;
 
     /**
      * Create a new message instance.
+     * Pass user id (not the model) so queued jobs don't fail when the user was deleted after queueing.
      */
-    public function __construct($user, $invitationUrl, $role)
+    public function __construct(int $userId, string $invitationUrl, string $role)
     {
-        $this->user = $user;
+        $this->userId = $userId;
         $this->invitationUrl = $invitationUrl;
         $this->role = $role;
         
@@ -87,15 +90,20 @@ class InvitationMail extends Mailable
 
     /**
      * Build the message.
-     * This method allows us to embed the logo as an attachment for better email client compatibility.
+     * Resolve the user when the job runs; if user was deleted, fail with a clear message.
      */
     public function build()
     {
-        // If we have a logo path, we'll embed it in the view using $message->embed()
-        // This is more reliable than base64 for email clients like Gmail
+        $user = User::find($this->userId);
+        if (!$user) {
+            throw new \RuntimeException(
+                'User no longer exists (id: ' . $this->userId . '). Invitation email not sent. You may flush old jobs: php artisan queue:flush'
+            );
+        }
+
         return $this->view('emails.invitation')
             ->with([
-                'user' => $this->user,
+                'user' => $user,
                 'invitationUrl' => $this->invitationUrl,
                 'role' => $this->role,
                 'logoBase64' => $this->logoBase64,

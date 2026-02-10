@@ -76,8 +76,8 @@ Route::get('/preview-invitation-email', function (Request $request) {
     $testToken = 'test-token-' . \Illuminate\Support\Str::random(32);
     $invitationUrl = "{$frontendUrl}/invitation/accept?token={$testToken}";
     
-    // Create mail instance to get logo data
-    $mail = new App\Mail\InvitationMail($mockUser, $invitationUrl, $role);
+    // Create mail instance to get logo data (userId 0 = preview only; view is rendered with $mockUser below)
+    $mail = new App\Mail\InvitationMail(0, $invitationUrl, $role);
     
     // Render the email view
     try {
@@ -215,6 +215,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Registration Requests (Admin only) - New system using RegistrationRequest model
     Route::prefix('registration-requests')->group(function () {
         Route::get('/', [App\Http\Controllers\Api\RegistrationRequestsController::class, 'index']);
+        Route::get('/approved-users', [App\Http\Controllers\Api\RegistrationRequestsController::class, 'approvedUsers']);
         Route::get('/{id}', [App\Http\Controllers\Api\RegistrationRequestsController::class, 'show']);
         Route::post('/{id}/approve', [App\Http\Controllers\Api\RegistrationRequestsController::class, 'approve']);
         Route::post('/{id}/reject', [App\Http\Controllers\Api\RegistrationRequestsController::class, 'reject']);

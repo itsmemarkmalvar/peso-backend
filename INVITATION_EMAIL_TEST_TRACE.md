@@ -2,6 +2,8 @@
 
 This document records a full run of the invitation-email flow so you can trace that it works correctly.
 
+**Automated test script:** Run `php test-registration-and-email-flow.php` (or `php test-registration-and-email-flow.php --process-queue` to process the queue and verify send) from the `peso-backend` directory. See the script header for prerequisites.
+
 ---
 
 ## Flow overview

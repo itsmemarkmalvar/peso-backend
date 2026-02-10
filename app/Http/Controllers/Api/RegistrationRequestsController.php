@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Enums\UserRole;
 use App\Http\Controllers\Api\BaseController;
 use App\Mail\InvitationMail;
+use App\Models\Intern;
 use App\Models\RegistrationRequest;
 use App\Models\User;
 use Illuminate\Database\QueryException;
@@ -56,6 +57,44 @@ class RegistrationRequestsController extends BaseController
         } catch (QueryException $e) {
             Log::error('Registration request show failed: ' . $e->getMessage());
             return $this->error($this->getDatabaseErrorMessage($e), 503);
+        }
+    }
+
+    /**
+     * List users created via registration approval (invitation sent).
+     * Query: status=pending|active|all (default: all). pending = not yet accepted invitation; active = accepted.
+     */
+    public function approvedUsers(Request $request): JsonResponse
+    {
+        try {
+            $status = $request->query('status', 'all');
+            $query = User::whereNotNull('invitation_sent_at')
+                ->orderByDesc('invitation_sent_at');
+
+            if ($status !== 'all') {
+                $query->where('status', $status);
+            }
+
+            $users = $query->get()->map(function (User $u) {
+                return [
+                    'id' => $u->id,
+                    'name' => $u->name,
+                    'email' => $u->email,
+                    'username' => $u->username,
+                    'role' => $u->role->value,
+                    'status' => $u->status,
+                    'invitation_sent_at' => optional($u->invitation_sent_at)->toISOString(),
+                    'invitation_accepted_at' => optional($u->invitation_accepted_at)->toISOString(),
+                ];
+            });
+
+            return $this->success($users);
+        } catch (QueryException $e) {
+            Log::error('Approved users list failed: ' . $e->getMessage());
+            return $this->error($this->getDatabaseErrorMessage($e), 503);
+        } catch (\Throwable $e) {
+            Log::error('Approved users list failed: ' . $e->getMessage());
+            return $this->error('Failed to load approved users.', 500);
         }
     }
 
@@ -159,23 +198,44 @@ class RegistrationRequestsController extends BaseController
             'approved_at' => now(),
         ]);
 
+        // Create Intern record for intern/gip so they appear in People and can complete onboarding later
+        if (in_array($requestedRole, ['intern', 'gip'])) {
+            Intern::create([
+                'user_id' => $user->id,
+                'full_name' => $registrationRequest->full_name,
+                'department_id' => $validated['department_id'],
+                'school' => 'Pending',
+                'course' => 'Pending',
+                'phone' => 'Pending',
+                'emergency_contact_name' => 'Pending',
+                'emergency_contact_phone' => 'Pending',
+                'is_active' => true,
+            ]);
+        }
+
         // Generate invitation URL
         $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000');
         $invitationUrl = "{$frontendUrl}/invitation/accept?token={$invitationToken}";
 
-        // Queue invitation email so approval returns immediately (avoids SMTP timeout / 30s fatal)
+        // Send invitation email immediately so the recipient actually gets it. (Previously we queued it;
+        // if no queue worker was running, no email was ever sent and nothing appeared in the sender's Sent folder.)
+        $invitationSent = false;
         try {
-            Mail::to($user->email)->queue(new InvitationMail($user, $invitationUrl, $requestedRole));
+            Mail::to($user->email)->send(new InvitationMail($user->id, $invitationUrl, $requestedRole));
+            $invitationSent = true;
         } catch (\Exception $e) {
-            Log::error('Failed to queue invitation email: ' . $e->getMessage());
+            Log::error('Invitation email send failed: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
         }
 
         return $this->success([
             'user' => $user,
             'role' => $requestedRole,
             'department_id' => $validated['department_id'],
-            'invitation_sent' => true,
-        ], 'Registration request approved. Invitation email has been queued.');
+            'invitation_sent' => $invitationSent,
+        ], $invitationSent
+            ? 'Registration request approved. Invitation email has been sent.'
+            : 'Registration request approved, but the invitation email could not be sent. Check storage/logs/laravel.log and MAIL_* in .env.');
     } catch (ValidationException $e) {
         return $this->validationError($e->errors(), $e->getMessage());
     } catch (QueryException $e) {

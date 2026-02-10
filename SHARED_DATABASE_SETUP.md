@@ -62,6 +62,32 @@ FLUSH PRIVILEGES;
   `DB_USERNAME=pesodev` and `DB_PASSWORD=your_password`.  
 - Everyone must use the same password.
 
+### C2. Fix phpMyAdmin "Host 'DESKTOP-...' is not allowed" on the server
+
+**→ Full step-by-step guide:** see **`PHPMYADMIN_HOST_NOT_ALLOWED_FIX.md`** in this folder (use it when this error happens again).
+
+When phpMyAdmin is set to connect to the server IP (`192.168.254.103`), opening it **on this same laptop** makes MariaDB see the client as the machine hostname (e.g. `DESKTOP-JQ5EEU2`). By default only `root`@'localhost' exists, so you get:
+
+- **MySQL said: Cannot connect: invalid settings.**
+- **Host 'DESKTOP-JQ5EEU2' is not allowed to connect to this MariaDB server.**
+
+**Fix (run once on the DB server):**
+
+1. Open **XAMPP Control Panel** → click **Shell** (or open CMD/PowerShell).
+2. Run MySQL as root (no password):
+   ```bash
+   C:\xampp\mysql\bin\mysql.exe -u root
+   ```
+3. Run the project script (replace with your actual hostname if different):
+   ```sql
+   source C:/xampp/htdocs/PESO/peso-backend/setup_mysql_allow_server_hostname.sql
+   ```
+   Or copy-paste the contents of `setup_mysql_allow_server_hostname.sql` into the MySQL prompt.
+4. Type `exit` and press Enter.
+5. Open **http://localhost/phpmyadmin** again — it should connect.
+
+The script adds `root`@'DESKTOP-JQ5EEU2' (so this laptop’s phpMyAdmin can connect) and `root`@'%' (so other team laptops can connect). If your PC hostname is different, edit the script and replace `DESKTOP-JQ5EEU2` with your hostname (see it in Windows: **Settings → System → About → Device name**).
+
 ### D. Windows Firewall
 
 Allow MySQL so other laptops can reach port 3306:
