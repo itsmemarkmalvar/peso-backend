@@ -130,6 +130,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'index']);
         Route::get('/today', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'today']);
         Route::get('/today-all', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'todayAll']);
+        Route::get('/approved-hours-summary', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'approvedHoursSummary']);
         Route::get('/history', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'history']);
         Route::get('/{id}', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'show']);
         Route::put('/{id}', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'update']);

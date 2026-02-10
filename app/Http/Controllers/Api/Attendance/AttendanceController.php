@@ -723,6 +723,56 @@ class AttendanceController extends BaseController
     }
 
     /**
+     * Get total approved hours grouped by intern (admin/supervisor only).
+     */
+    public function approvedHoursSummary(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user->isAdmin() && !$user->isSupervisor()) {
+            return $this->forbidden('Only administrators and supervisors can view approved hours summary');
+        }
+
+        $records = Attendance::where('status', AttendanceStatus::APPROVED)
+            ->get([
+                'intern_id',
+                'total_hours',
+                'clock_in_time',
+                'clock_out_time',
+                'break_start',
+                'break_end',
+            ]);
+
+        $totals = [];
+        foreach ($records as $attendance) {
+            $hoursValue = null;
+            if ($attendance->total_hours !== null && (float) $attendance->total_hours > 0) {
+                $hoursValue = (float) $attendance->total_hours;
+            } elseif ($attendance->clock_in_time && $attendance->clock_out_time) {
+                $hoursValue = AttendanceHours::computeCompletedHours($attendance);
+            }
+
+            if ($hoursValue === null) {
+                continue;
+            }
+
+            $internId = (string) $attendance->intern_id;
+            if (!isset($totals[$internId])) {
+                $totals[$internId] = 0.0;
+            }
+            $totals[$internId] += $hoursValue;
+        }
+
+        $summary = collect($totals)->map(function (float $hours, string $internId) {
+            return [
+                'intern_id' => (int) $internId,
+                'hours_rendered' => round($hours, 2),
+            ];
+        })->values();
+
+        return $this->success($summary, 'Approved hours summary retrieved');
+    }
+
+    /**
      * Show attendance details
      */
     public function show(Request $request, int $id): JsonResponse
