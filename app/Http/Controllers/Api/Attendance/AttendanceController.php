@@ -473,14 +473,39 @@ class AttendanceController extends BaseController
             }
         }
 
+        // Get reverse geocoded address (when GPS is provided)
+        $locationAddress = null;
+        if ($request->location_lat !== null && $request->location_lng !== null) {
+            $locationAddress = $this->getAddressFromCoordinates(
+                $request->location_lat,
+                $request->location_lng
+            );
+        }
+
+        // Save photo when selfie verification is enabled
+        $photoPath = null;
+        if (!empty($request->photo)) {
+            $photoPath = $this->saveBase64Image($request->photo, 'break-start');
+        }
+
         $breakStartTime = now();
         try {
-            $attendance->update(['break_start' => $breakStartTime]);
+            $attendance->update([
+                'break_start' => $breakStartTime,
+                'break_start_photo' => $photoPath,
+                'location_lat' => $request->location_lat,
+                'location_lng' => $request->location_lng,
+                'location_address' => $locationAddress,
+                'geofence_location_id' => $request->geofence_location_id,
+            ]);
             return $this->success([
                 'attendance' => $attendance->fresh(['intern', 'geofenceLocation']),
                 'message' => 'Break started',
             ], 'Break started');
         } catch (\Exception $e) {
+            if (isset($photoPath)) {
+                Storage::disk('public')->delete($photoPath);
+            }
             return $this->error('Failed to record break start: ' . $e->getMessage(), 500);
         }
     }
@@ -556,14 +581,39 @@ class AttendanceController extends BaseController
             }
         }
 
+        // Get reverse geocoded address (when GPS is provided)
+        $locationAddress = null;
+        if ($request->location_lat !== null && $request->location_lng !== null) {
+            $locationAddress = $this->getAddressFromCoordinates(
+                $request->location_lat,
+                $request->location_lng
+            );
+        }
+
+        // Save photo when selfie verification is enabled
+        $photoPath = null;
+        if (!empty($request->photo)) {
+            $photoPath = $this->saveBase64Image($request->photo, 'break-end');
+        }
+
         $breakEndTime = now();
         try {
-            $attendance->update(['break_end' => $breakEndTime]);
+            $attendance->update([
+                'break_end' => $breakEndTime,
+                'break_end_photo' => $photoPath,
+                'location_lat' => $request->location_lat,
+                'location_lng' => $request->location_lng,
+                'location_address' => $locationAddress,
+                'geofence_location_id' => $request->geofence_location_id,
+            ]);
             return $this->success([
                 'attendance' => $attendance->fresh(['intern', 'geofenceLocation']),
                 'message' => 'Break ended',
             ], 'Break ended');
         } catch (\Exception $e) {
+            if (isset($photoPath)) {
+                Storage::disk('public')->delete($photoPath);
+            }
             return $this->error('Failed to record break end: ' . $e->getMessage(), 500);
         }
     }

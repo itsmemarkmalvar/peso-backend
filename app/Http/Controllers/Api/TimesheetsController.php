@@ -243,6 +243,16 @@ class TimesheetsController extends BaseController
                     $attendance->getRawOriginal('break_end'),
                     $attendance
                 ),
+                'break_start_photo' => $attendance->break_start_photo
+                    ? (str_starts_with($attendance->break_start_photo, 'http')
+                        ? $attendance->break_start_photo
+                        : asset('storage/' . $attendance->break_start_photo))
+                    : null,
+                'break_end_photo' => $attendance->break_end_photo
+                    ? (str_starts_with($attendance->break_end_photo, 'http')
+                        ? $attendance->break_end_photo
+                        : asset('storage/' . $attendance->break_end_photo))
+                    : null,
                 'clock_in_photo' => $attendance->clock_in_photo
                     ? (str_starts_with($attendance->clock_in_photo, 'http') 
                         ? $attendance->clock_in_photo 
