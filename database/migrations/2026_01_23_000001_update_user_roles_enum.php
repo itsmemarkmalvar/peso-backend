@@ -12,15 +12,31 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Step 1: Temporarily expand enum to include both old and new roles
+        $driver = DB::getDriverName();
+        if ($driver === 'pgsql') {
+            DB::statement("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check");
+            DB::statement(
+                "ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role in ('admin','coordinator','supervisor','gip','intern'))"
+            );
+
+            DB::table('users')
+                ->where('role', 'coordinator')
+                ->update(['role' => 'supervisor']);
+
+            DB::statement("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check");
+            DB::statement(
+                "ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role in ('admin','supervisor','gip','intern'))"
+            );
+            return;
+        }
+
+        // MySQL enum mutation
         DB::statement("ALTER TABLE `users` MODIFY COLUMN `role` ENUM('admin', 'coordinator', 'supervisor', 'gip', 'intern') NOT NULL DEFAULT 'intern'");
-        
-        // Step 2: Update any existing 'coordinator' roles to 'supervisor'
+
         DB::table('users')
             ->where('role', 'coordinator')
             ->update(['role' => 'supervisor']);
-        
-        // Step 3: Now remove 'coordinator' from enum, keeping only the new roles
+
         DB::statement("ALTER TABLE `users` MODIFY COLUMN `role` ENUM('admin', 'supervisor', 'gip', 'intern') NOT NULL DEFAULT 'intern'");
     }
 
@@ -29,12 +45,23 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // First, update any 'supervisor' roles back to 'coordinator'
+        $driver = DB::getDriverName();
+        if ($driver === 'pgsql') {
+            DB::table('users')
+                ->where('role', 'supervisor')
+                ->update(['role' => 'coordinator']);
+
+            DB::statement("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check");
+            DB::statement(
+                "ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role in ('admin','coordinator','intern'))"
+            );
+            return;
+        }
+
         DB::table('users')
             ->where('role', 'supervisor')
             ->update(['role' => 'coordinator']);
 
-        // Revert back to old roles: admin, coordinator, intern
         DB::statement("ALTER TABLE `users` MODIFY COLUMN `role` ENUM('admin', 'coordinator', 'intern') NOT NULL DEFAULT 'intern'");
     }
 };

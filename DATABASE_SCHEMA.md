@@ -285,6 +285,31 @@ Allowed clock-in locations for geofencing.
 
 ---
 
+### 10. `documents`
+
+Admin-uploaded files that interns can download and print.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | BIGINT UNSIGNED | PRIMARY KEY, AUTO_INCREMENT | Document ID |
+| `title` | VARCHAR(255) | NOT NULL | Document title |
+| `description` | TEXT | NULLABLE | Short description |
+| `file_path` | VARCHAR(255) | NOT NULL | Storage path on disk |
+| `file_name` | VARCHAR(255) | NOT NULL | Original file name |
+| `file_size` | BIGINT UNSIGNED | NOT NULL | File size in bytes |
+| `mime_type` | VARCHAR(100) | NOT NULL | File MIME type |
+| `uploaded_by` | BIGINT UNSIGNED | FOREIGN KEY → users(id), NOT NULL | Admin uploader |
+| `is_active` | BOOLEAN | DEFAULT TRUE | Visibility flag |
+| `created_at` | TIMESTAMP | NULLABLE | Creation timestamp |
+| `updated_at` | TIMESTAMP | NULLABLE | Last update timestamp |
+
+**Indexes:**
+- PRIMARY KEY: `id`
+- FOREIGN KEY: `uploaded_by` → `users(id)` ON DELETE CASCADE
+- INDEX: `is_active`, `created_at`
+
+---
+
 ## Relationships Summary
 
 1. **users → interns** (1:1)
@@ -332,8 +357,9 @@ Allowed clock-in locations for geofencing.
 5. `approvals` (depends on attendance and users)
 6. `notifications` (depends on users)
 7. `activity_logs` (depends on users)
-8. `holidays` (optional, standalone)
-9. `geofence_locations` (optional, standalone)
+8. `documents` (depends on users)
+9. `holidays` (optional, standalone)
+10. `geofence_locations` (optional, standalone)
 
 ---
 

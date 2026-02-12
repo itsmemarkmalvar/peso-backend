@@ -12,8 +12,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Modify the status ENUM to include 'pending'
-        // MySQL doesn't support direct ENUM modification, so we use raw SQL
+        // Modify the status enum/check to include 'pending'
+        $driver = DB::getDriverName();
+        if ($driver === 'pgsql') {
+            DB::statement("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_status_check");
+            DB::statement(
+                "ALTER TABLE users ADD CONSTRAINT users_status_check CHECK (status in ('active','inactive','suspended','pending'))"
+            );
+            return;
+        }
+
+        // MySQL uses ENUM type
         DB::statement("ALTER TABLE `users` MODIFY COLUMN `status` ENUM('active', 'inactive', 'suspended', 'pending') NOT NULL DEFAULT 'active'");
     }
 
@@ -22,7 +31,16 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Remove 'pending' from the ENUM (revert to original)
+        // Remove 'pending' from the enum/check
+        $driver = DB::getDriverName();
+        if ($driver === 'pgsql') {
+            DB::statement("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_status_check");
+            DB::statement(
+                "ALTER TABLE users ADD CONSTRAINT users_status_check CHECK (status in ('active','inactive','suspended'))"
+            );
+            return;
+        }
+
         DB::statement("ALTER TABLE `users` MODIFY COLUMN `status` ENUM('active', 'inactive', 'suspended') NOT NULL DEFAULT 'active'");
     }
 };

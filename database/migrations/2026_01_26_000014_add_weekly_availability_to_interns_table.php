@@ -21,6 +21,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (!Schema::hasColumn('interns', 'weekly_availability')) {
+            return;
+        }
+
         Schema::table('interns', function (Blueprint $table) {
             $table->dropColumn('weekly_availability');
         });

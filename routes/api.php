@@ -200,6 +200,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{id}/respond', [App\Http\Controllers\Api\NotificationsController::class, 'respond']);
     });
 
+    // Documents (Admin uploads, interns view)
+    Route::prefix('documents')->group(function () {
+        Route::get('/', [App\Http\Controllers\Api\DocumentsController::class, 'index']);
+        Route::post('/', [App\Http\Controllers\Api\DocumentsController::class, 'store']);
+        Route::get('/{id}/download', [App\Http\Controllers\Api\DocumentsController::class, 'download']);
+        Route::delete('/{id}', [App\Http\Controllers\Api\DocumentsController::class, 'destroy']);
+    });
+
     // Geofence Locations
     Route::prefix('geofence-locations')->group(function () {
         Route::get('/', [App\Http\Controllers\Api\GeofenceLocationsController::class, 'index']);
