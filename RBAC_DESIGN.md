@@ -116,7 +116,7 @@
 - ✅ Can optionally be assigned to specific interns (for workflow/organization purposes, but access is not restricted)
 
 **Restrictions:**
-- ❌ Cannot create admin/coordinator accounts
+- ❌ Cannot create admin accounts
 - ❌ Cannot modify system settings
 - ❌ Cannot clock in/out (not an intern)
 - ❌ Cannot delete attendance records (only approve/reject, unless manual override with reason)
@@ -135,7 +135,7 @@
 - Can see ALL schedules
 - Assignment to specific interns is optional (for organizational purposes, notifications, etc.) but does NOT restrict access
 
-**Note:** Even if a coordinator is assigned to specific interns (via `supervisor_user_id` or similar), they still have full access to all interns. Assignment is for workflow/organization purposes only.
+**Note:** Even if a supervisor is assigned to specific interns (via `supervisor_user_id`), they may still have access to all interns depending on policy. Assignment is for workflow/organization purposes.
 
 ---
 
@@ -273,20 +273,15 @@
 
 ## 🤔 Questions to Discuss
 
-### 1. **Coordinator Assignment Model**
-- **Current:** Interns have `supervisor_name` and `supervisor_email`
-- **Question:** Should we add `coordinator_user_id` to `interns` table for explicit assignment?
-  - Option A: Keep `supervisor_name`/`supervisor_email` (string matching)
-  - Option B: Add `coordinator_user_id` foreign key (explicit relationship)
-  - Option C: Create `intern_coordinator` pivot table (many-to-many)
-
-**Recommendation:** Option B - Add `coordinator_user_id` for explicit relationship (even though coordinators have full access, assignment helps with workflow/organization)
+### 1. **Supervisor Assignment Model**
+- **Current:** Interns have `supervisor_name`, `supervisor_email`, and `supervisor_user_id` (optional).
+- **Note:** The system has no coordinator role. Supervisors are assigned via `supervisor_user_id` on the `interns` table for explicit relationship and workflow.
 
 ### 2. **Registration Restrictions**
 - ✅ Currently: Registration creates INTERN role only
 - **Question:** Should registration be disabled entirely, or allow with approval?
   - Option A: Registration disabled - only admins create accounts
-  - Option B: Registration open but requires coordinator approval
+  - Option B: Registration open but requires admin/supervisor approval
   - Option C: Registration open, auto-approved (current)
 
 **Recommendation:** Option B - Registration open but requires approval (add `status = 'pending'` for new registrations)
@@ -294,7 +289,7 @@
 ### 3. **Data Export Permissions**
 - **Question:** Who can export what?
   - Interns: Own DTR only
-  - Coordinators: All interns' reports
+  - Supervisors: Assigned interns' reports (or all, per policy)
   - Admins: All data exports
 
 **Recommendation:** Role-based export limits as shown in matrix
@@ -307,7 +302,7 @@
 - [x] Remove SUPERVISOR from UserRole enum
 - [x] Update HasRoles trait (remove isSupervisor)
 - [ ] Create middleware: `EnsureUserHasRole`
-- [ ] Add `coordinator_user_id` to `interns` table migration (optional, for assignment)
+- [x] `supervisor_user_id` on `interns` table (for assignment)
 - [ ] Update `InternController` with role-based filtering
 - [ ] Update `AttendanceController` with role-based filtering
 - [ ] Update `ApprovalController` with role-based checks
@@ -323,7 +318,7 @@
 - [ ] Update role references (remove supervisor mentions)
 
 ### Database:
-- [ ] Consider adding `coordinator_user_id` foreign key to `interns` table (optional)
+- [x] `supervisor_user_id` foreign key on `interns` table
 - [ ] Update migration to remove supervisor-specific fields if not needed
 - [ ] Add indexes for role-based queries
 
@@ -331,8 +326,8 @@
 
 ## 🎯 Next Steps
 
-1. ✅ **Combine COORDINATOR and SUPERVISOR roles** - DONE
-2. **Clarify coordinator assignment model** - Add `coordinator_user_id` for explicit relationship?
+1. ✅ **Roles are ADMIN, SUPERVISOR, GIP, INTERN only** (no coordinator role)
+2. ✅ **Supervisor assignment** - `supervisor_user_id` on `interns` table
 3. **Define registration workflow** - Open with approval, or admin-only?
 4. **Review permission matrix** - Adjust based on your actual needs
 5. **Implement role-based middleware** - Start with backend security
