@@ -88,6 +88,14 @@ class AuthController extends BaseController
      */
     public function login(Request $request): JsonResponse
     {
+        // Ensure JSON body is merged into request (e.g. when proxied or Content-Type not applied)
+        if ($request->getContent() && ! $request->has('email') && ! $request->has('password')) {
+            $decoded = json_decode($request->getContent(), true);
+            if (is_array($decoded)) {
+                $request->merge($decoded);
+            }
+        }
+
         $request->validate([
             'email' => 'required|email',
             'password' => 'required',

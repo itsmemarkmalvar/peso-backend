@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Interns;
 
+use App\Enums\AttendanceStatus;
 use App\Http\Controllers\Api\BaseController;
 use App\Helpers\AttendanceHours;
 use App\Models\Attendance;
@@ -397,5 +398,54 @@ class InternDashboardController extends BaseController
             'stats' => $stats,
             'recentActivity' => $recentActivity,
         ], 'Dashboard data retrieved');
+    }
+
+    /**
+     * Get the authenticated intern's own list of attendance approval statuses.
+     * Returns items with date, status (Pending/Approved/Rejected), and detail for the Approvals page.
+     */
+    public function approvals(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return $this->unauthorized('User not authenticated');
+        }
+
+        $intern = Intern::where('user_id', $user->id)->first();
+        if (!$intern) {
+            return $this->notFound('Intern profile not found');
+        }
+
+        $attendances = Attendance::where('intern_id', $intern->id)
+            ->with('approver')
+            ->orderBy('date', 'desc')
+            ->orderBy('clock_in_time', 'desc')
+            ->limit(100)
+            ->get();
+
+        $items = $attendances->map(function (Attendance $attendance) {
+            $status = $attendance->status instanceof AttendanceStatus
+                ? $attendance->status->label()
+                : ucfirst((string) ($attendance->status ?? 'pending'));
+
+            $detail = 'Waiting for supervisor review.';
+            if ($attendance->status === AttendanceStatus::APPROVED) {
+                $approverName = $attendance->approver?->name ?? 'Supervisor';
+                $detail = "Approved by {$approverName}.";
+            } elseif ($attendance->status === AttendanceStatus::REJECTED) {
+                $reason = $attendance->rejection_reason ?: 'No reason provided.';
+                $detail = "Rejected: {$reason}";
+            }
+
+            return [
+                'id' => $attendance->id,
+                'date' => $attendance->date->format('M j, Y'),
+                'status' => $status,
+                'detail' => $detail,
+            ];
+        })->values()->all();
+
+        return $this->success(['items' => $items], 'Approvals list retrieved');
     }
 }

@@ -400,13 +400,17 @@ class TimesheetsController extends BaseController
 
     /**
      * Normalize attendance status to title case for intern-facing labels.
+     * Returns Approved, Pending, or Rejected when there is a clock-in record; otherwise "No record".
      */
     private function formatStatusLabel(?Attendance $attendance): string
     {
         if (!$attendance || !$attendance->clock_in_time) {
             return 'No record';
         }
-        return 'Recorded';
+        if ($attendance->status instanceof \App\Enums\AttendanceStatus) {
+            return $attendance->status->label();
+        }
+        return ucfirst((string) ($attendance->status ?? 'pending'));
     }
 
     /**

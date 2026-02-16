@@ -5,11 +5,33 @@ namespace App\Http\Controllers\Api\Interns;
 use App\Http\Controllers\Api\BaseController;
 use App\Models\Intern;
 use App\Models\SchoolSchedule;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class InternController extends BaseController
 {
+    /**
+     * Check if the current user can view or modify the given intern.
+     * Admin: any. Supervisor: only interns they supervise. Intern/GIP: only their own.
+     */
+    private function canAccessIntern(Request $request, Intern $intern): bool
+    {
+        $user = $request->user();
+        if (!$user) {
+            return false;
+        }
+        if ($user->isAdmin()) {
+            return true;
+        }
+        if ($user->isSupervisor() && (int) $intern->supervisor_user_id === (int) $user->id) {
+            return true;
+        }
+        if ($user->isInternOrGip() && (int) $intern->user_id === (int) $user->id) {
+            return true;
+        }
+        return false;
+    }
     private function formatInternProfile(Intern $intern): array
     {
         return [
@@ -103,8 +125,41 @@ class InternController extends BaseController
 
     public function store(Request $request): JsonResponse
     {
-        // TODO: Implement create intern
-        return $this->success(null, 'Intern created');
+        $user = $request->user();
+        if (!$user || !$user->isAdmin()) {
+            return $this->forbidden('Only administrators can create intern records.');
+        }
+
+        $validated = $request->validate([
+            'user_id' => ['required', 'integer', 'exists:users,id'],
+            'full_name' => ['nullable', 'string', 'max:255'],
+            'department_id' => ['nullable', 'integer', 'exists:departments,id'],
+            'supervisor_user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'school' => ['nullable', 'string', 'max:255'],
+            'course' => ['nullable', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        if (Intern::where('user_id', $validated['user_id'])->exists()) {
+            return $this->error('User already has an intern profile.', 422);
+        }
+
+        $intern = Intern::create([
+            'user_id' => $validated['user_id'],
+            'full_name' => $validated['full_name'] ?? User::find($validated['user_id'])->name ?? 'Pending',
+            'department_id' => $validated['department_id'] ?? null,
+            'supervisor_user_id' => $validated['supervisor_user_id'] ?? null,
+            'school' => $validated['school'] ?? 'Pending',
+            'course' => $validated['course'] ?? 'Pending',
+            'phone' => $validated['phone'] ?? 'Pending',
+            'emergency_contact_name' => 'Pending',
+            'emergency_contact_phone' => 'Pending',
+            'is_active' => $validated['is_active'] ?? true,
+        ]);
+
+        $intern->load(['user', 'supervisor', 'department']);
+        return $this->success($this->formatInternProfile($intern), 'Intern created', 201);
     }
 
     public function me(Request $request): JsonResponse
@@ -196,21 +251,78 @@ class InternController extends BaseController
         );
     }
 
-    public function show(int $id): JsonResponse
+    public function show(Request $request, int $id): JsonResponse
     {
-        // TODO: Implement show intern
-        return $this->success(null, 'Intern details');
+        $intern = Intern::with(['supervisor', 'department'])->find($id);
+        if (!$intern) {
+            return $this->notFound('Intern not found');
+        }
+        if (!$this->canAccessIntern($request, $intern)) {
+            return $this->forbidden('You do not have permission to view this intern.');
+        }
+        return $this->success($this->formatInternProfile($intern), 'Intern details');
     }
 
     public function update(Request $request, int $id): JsonResponse
     {
-        // TODO: Implement update intern
-        return $this->success(null, 'Intern updated');
+        $intern = Intern::with(['supervisor', 'department'])->find($id);
+        if (!$intern) {
+            return $this->notFound('Intern not found');
+        }
+        if (!$this->canAccessIntern($request, $intern)) {
+            return $this->forbidden('You do not have permission to update this intern.');
+        }
+
+        $user = $request->user();
+        $rules = [
+            'full_name' => ['sometimes', 'string', 'max:255'],
+            'school' => ['sometimes', 'string', 'max:255'],
+            'course' => ['sometimes', 'string', 'max:255'],
+            'year_level' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'phone' => ['sometimes', 'string', 'max:50'],
+            'emergency_contact_name' => ['sometimes', 'string', 'max:255'],
+            'emergency_contact_phone' => ['sometimes', 'string', 'max:50'],
+            'required_hours' => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'department_id' => ['sometimes', 'nullable', 'integer', 'exists:departments,id'],
+            'supervisor_user_id' => ['sometimes', 'nullable', 'integer', 'exists:users,id'],
+            'company_name' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'supervisor_name' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'supervisor_email' => ['sometimes', 'nullable', 'string', 'email'],
+            'supervisor_contact' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'start_date' => ['sometimes', 'nullable', 'date'],
+            'end_date' => ['sometimes', 'nullable', 'date'],
+            'is_active' => ['sometimes', 'boolean'],
+        ];
+        if ($user && $user->isAdmin()) {
+            $rules['student_id'] = ['sometimes', 'nullable', 'string', 'max:100'];
+        }
+        $validated = $request->validate($rules);
+
+        $intern->update($validated);
+        return $this->success($this->formatInternProfile($intern->fresh(['supervisor', 'department'])), 'Intern updated');
     }
 
-    public function destroy(int $id): JsonResponse
+    public function destroy(Request $request, int $id): JsonResponse
     {
-        // TODO: Implement delete intern
-        return $this->success(null, 'Intern deleted');
+        $intern = Intern::find($id);
+        if (!$intern) {
+            return $this->notFound('Intern not found');
+        }
+        if (!$this->canAccessIntern($request, $intern)) {
+            return $this->forbidden('You do not have permission to delete this intern.');
+        }
+        $user = $request->user();
+        if (!$user->isAdmin() && !$user->isSupervisor()) {
+            return $this->forbidden('Only administrators or supervisors can deactivate interns.');
+        }
+        if ($user->isSupervisor() && (int) $intern->supervisor_user_id !== (int) $user->id) {
+            return $this->forbidden('You can only deactivate interns you supervise.');
+        }
+
+        $intern->update(['is_active' => false]);
+        return $this->success(
+            ['id' => $intern->id, 'is_active' => false],
+            'Intern deactivated. Record retained for history.'
+        );
     }
 }
