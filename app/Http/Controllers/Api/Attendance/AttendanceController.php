@@ -135,11 +135,10 @@ class AttendanceController extends BaseController
             $photoPath = $this->saveBase64Image($request->photo, 'clock-in');
         }
 
-        // Intern clock-in window: allowed until scheduled start + grace period (Asia/Manila)
+        // Get today's schedule and grace period (Asia/Manila)
         $manilaTz = config('app.timezone', 'Asia/Manila');
         $nowManila = now($manilaTz);
 
-        // Get today's schedule
         $dayOfWeek = $nowManila->dayOfWeek;
         $schedule = Schedule::where('intern_id', $intern->id)
             ->where('day_of_week', $dayOfWeek)
@@ -150,26 +149,17 @@ class AttendanceController extends BaseController
             ? $nowManila->copy()->setTimeFromTimeString($schedule->start_time)
             : $nowManila->copy()->startOfDay()->setTime(8, 0, 0);
 
-        // Use grace period from system settings for clock-in cutoff
         $graceMinutes = $settings->grace_period_minutes ?? 10;
-        $cutoffToday = $scheduledStart->copy()->addMinutes($graceMinutes);
+        $graceEnd = $scheduledStart->copy()->addMinutes($graceMinutes);
 
-        if ($nowManila->gt($cutoffToday)) {
-            $cutoffLabel = $cutoffToday->format('g:i A');
-            return $this->error(
-                "Clock-in is only allowed until {$cutoffLabel} (scheduled start + {$graceMinutes} min grace period). You cannot clock in after {$cutoffLabel}.",
-                400
-            );
-        }
+        // Determine approval flow: early/on-time/within-grace = auto-ok; after grace = late (approval)
+        $isLate = $nowManila->gt($graceEnd);
 
-        // Record actual clock-in time: use scheduled start if early, otherwise use actual time
-        $clockInTime = $nowManila->lt($scheduledStart)
-            ? $scheduledStart->copy()
-            : $nowManila->copy();
+        // Effective clock-in is ALWAYS scheduled start (timer uses this)
+        $effectiveClockIn = $scheduledStart->copy();
 
-        // Check if late based on schedule (grace period from system settings)
-        $lateCutoff = $scheduledStart->copy()->addMinutes($graceMinutes);
-        $isLate = $clockInTime->gt($lateCutoff);
+        // Actual clock-in time (audit)
+        $clockInTime = $nowManila->copy();
 
         try {
             DB::beginTransaction();
@@ -178,13 +168,16 @@ class AttendanceController extends BaseController
                 // Update existing record
                 $existing->update([
                     'clock_in_time' => $clockInTime,
+                    'effective_clock_in_time' => $effectiveClockIn,
                     'clock_in_photo' => $photoPath,
                     'location_lat' => $request->location_lat,
                     'location_lng' => $request->location_lng,
                     'location_address' => $locationAddress,
                     'geofence_location_id' => $geofenceLocation?->id,
                     'clock_in_method' => 'web',
+                    'status' => $isLate ? AttendanceStatus::PENDING : AttendanceStatus::APPROVED,
                     'is_late' => $isLate,
+                    'approval_type' => $isLate ? 'late_clock_in' : null,
                 ]);
                 $attendance = $existing;
             } else {
@@ -193,23 +186,29 @@ class AttendanceController extends BaseController
                     'intern_id' => $intern->id,
                     'date' => $today,
                     'clock_in_time' => $clockInTime,
+                    'effective_clock_in_time' => $effectiveClockIn,
                     'clock_in_photo' => $photoPath,
                     'location_lat' => $request->location_lat,
                     'location_lng' => $request->location_lng,
                     'location_address' => $locationAddress,
                     'geofence_location_id' => $geofenceLocation?->id,
                     'clock_in_method' => 'web',
-                    'status' => AttendanceStatus::PENDING,
+                    'status' => $isLate ? AttendanceStatus::PENDING : AttendanceStatus::APPROVED,
                     'is_late' => $isLate,
+                    'approval_type' => $isLate ? 'late_clock_in' : null,
                 ]);
             }
 
             DB::commit();
 
+            $message = $isLate
+                ? 'Clocked in (late). Awaiting supervisor approval.'
+                : 'Clocked in successfully';
+
             return $this->success([
                 'attendance' => $attendance->load(['intern', 'geofenceLocation']),
-                'message' => $isLate ? 'Clocked in (late)' : 'Clocked in successfully',
-            ], $isLate ? 'Clocked in (late)' : 'Clocked in successfully');
+                'message' => $message,
+            ], $message);
         } catch (\Exception $e) {
             DB::rollBack();
             // Delete uploaded photo on error
@@ -217,6 +216,128 @@ class AttendanceController extends BaseController
                 Storage::disk('public')->delete($photoPath);
             }
             return $this->error('Failed to clock in: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Clock-in correction (GPS/device failure within grace period)
+     * Intern submits reason when GPS fails but they are within grace period.
+     */
+    public function clockInCorrection(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) {
+            return $this->unauthorized('User not authenticated');
+        }
+        $user->refresh();
+        $rawRole = $user->getRawOriginal('role') ?? $user->getAttribute('role');
+        $isAllowed = $user->role instanceof \App\Enums\UserRole
+            ? $user->isInternOrGip()
+            : in_array(strtolower((string) $rawRole), ['intern', 'gip'], true);
+        if (!$isAllowed) {
+            return $this->forbidden('Only interns and GIP can request clock-in correction');
+        }
+
+        $intern = Intern::where('user_id', $user->id)->first();
+        if (!$intern) {
+            return $this->notFound('Intern profile not found');
+        }
+
+        $settings = SystemSetting::get();
+        // GPS correction: location not required, but selfie and reason are required
+        $rules = [
+            'photo' => ($settings->verification_selfie ? 'required' : 'nullable') . '|string',
+            'reason' => 'required|string|max:500',
+        ];
+        $validator = Validator::make($request->all(), $rules);
+        if ($validator->fails()) {
+            return $this->validationError($validator->errors());
+        }
+
+        $manilaTz = 'Asia/Manila';
+        $nowManila = now($manilaTz);
+        $today = Carbon::now($manilaTz)->startOfDay();
+
+        $existing = Attendance::where('intern_id', $intern->id)
+            ->where('date', $today)
+            ->first();
+
+        if ($existing && $existing->clock_in_time) {
+            return $this->error('You have already clocked in today', 400);
+        }
+
+        $dayOfWeek = $nowManila->dayOfWeek;
+        $schedule = Schedule::where('intern_id', $intern->id)
+            ->where('day_of_week', $dayOfWeek)
+            ->where('is_active', true)
+            ->first();
+
+        $scheduledStart = $schedule
+            ? $nowManila->copy()->setTimeFromTimeString($schedule->start_time)
+            : $nowManila->copy()->startOfDay()->setTime(8, 0, 0);
+
+        $graceMinutes = $settings->grace_period_minutes ?? 10;
+        $graceEnd = $scheduledStart->copy()->addMinutes($graceMinutes);
+        $isLate = $nowManila->gt($graceEnd);
+
+        // Allow correction regardless of grace period - intern may have GPS failure and be late
+        $photoPath = null;
+        if (!empty($request->photo)) {
+            $photoPath = $this->saveBase64Image($request->photo, 'clock-in');
+        }
+
+        $effectiveClockIn = $scheduledStart->copy();
+        $clockInTime = $nowManila->copy();
+        $reason = trim($request->reason);
+
+        try {
+            DB::beginTransaction();
+
+            if ($existing) {
+                $existing->update([
+                    'clock_in_time' => $clockInTime,
+                    'effective_clock_in_time' => $effectiveClockIn,
+                    'clock_in_photo' => $photoPath,
+                    'clock_in_method' => 'web',
+                    'status' => AttendanceStatus::PENDING,
+                    'is_late' => $isLate,
+                    'is_gps_correction' => true,
+                    'approval_type' => 'gps_correction',
+                    'notes' => $reason,
+                ]);
+                $attendance = $existing;
+            } else {
+                $attendance = Attendance::create([
+                    'intern_id' => $intern->id,
+                    'date' => $today,
+                    'clock_in_time' => $clockInTime,
+                    'effective_clock_in_time' => $effectiveClockIn,
+                    'clock_in_photo' => $photoPath,
+                    'clock_in_method' => 'web',
+                    'status' => AttendanceStatus::PENDING,
+                    'is_late' => $isLate,
+                    'is_gps_correction' => true,
+                    'approval_type' => 'gps_correction',
+                    'notes' => $reason,
+                ]);
+            }
+
+            DB::commit();
+
+            $message = $isLate
+                ? 'Late clock-in correction requested. Awaiting supervisor approval.'
+                : 'Clock-in correction requested. Awaiting supervisor approval.';
+
+            return $this->success([
+                'attendance' => $attendance->load(['intern', 'geofenceLocation']),
+                'message' => $message,
+            ], $message);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            if (isset($photoPath)) {
+                Storage::disk('public')->delete($photoPath);
+            }
+            return $this->error('Failed to submit correction: ' . $e->getMessage(), 500);
         }
     }
 
@@ -338,73 +459,98 @@ class AttendanceController extends BaseController
             $photoPath = $this->saveBase64Image($request->photo, 'clock-out');
         }
 
-        // Calculate total hours
-        $clockOutTime = now();
-        $totalMinutes = $attendance->clock_in_time->diffInMinutes($clockOutTime);
-        
-        // Subtract break time if exists
-        if ($attendance->break_start && $attendance->break_end) {
-            $breakMinutes = $attendance->break_start->diffInMinutes($attendance->break_end);
-            $totalMinutes -= $breakMinutes;
-        }
-        
-        $totalHours = round($totalMinutes / 60, 2);
+        $manilaTz = 'Asia/Manila';
+        $clockOutTime = Carbon::now($manilaTz);
 
-        // Get today's schedule
-        $dayOfWeek = now()->dayOfWeek;
+        // Get today's schedule and grace period
+        $dayOfWeek = $clockOutTime->dayOfWeek;
         $schedule = Schedule::where('intern_id', $intern->id)
             ->where('day_of_week', $dayOfWeek)
             ->where('is_active', true)
             ->first();
 
-        $isUndertime = false;
-        $isOvertime = false;
+        $graceMinutes = $settings->grace_period_minutes ?? 10;
+        $scheduledStart = $schedule
+            ? $clockOutTime->copy()->setTimeFromTimeString($schedule->start_time)
+            : $clockOutTime->copy()->startOfDay()->setTime(8, 0, 0);
+        $scheduledEnd = $schedule
+            ? $clockOutTime->copy()->setTimeFromTimeString($schedule->end_time)
+            : $clockOutTime->copy()->setTime(17, 0, 0);
+        $graceEndTime = $scheduledEnd->copy()->addMinutes($graceMinutes);
 
-        // Check undertime/overtime based on schedule (30 min tolerance for overtime)
-        if ($schedule) {
-            $scheduledStart = now()->setTimeFromTimeString($schedule->start_time);
-            $scheduledEnd = now()->setTimeFromTimeString($schedule->end_time);
-            $scheduledHours = $scheduledEnd->diffInMinutes($scheduledStart) / 60;
-            
-            if ($schedule->break_duration > 0) {
-                $scheduledHours -= ($schedule->break_duration / 60);
-            }
+        $effectiveStart = $attendance->effective_clock_in_time ?? $attendance->clock_in_time;
 
-            if ($totalHours < $scheduledHours - 0.5) { // 30 minute undertime tolerance
-                $isUndertime = true;
-            } elseif ($totalHours > $scheduledHours + 0.5) { // 30 minute overtime threshold
-                $isOvertime = true;
-            }
+        // Determine: early out, normal (within grace), or overtime (past grace)
+        $isEarlyOut = $clockOutTime->lt($scheduledEnd);
+        $isOvertime = $clockOutTime->gt($graceEndTime);
+
+        $effectiveClockOut = null;
+        $approvalType = null;
+        $status = AttendanceStatus::APPROVED;
+
+        if ($isEarlyOut) {
+            $effectiveClockOut = $clockOutTime->copy();
+            $approvalType = 'early_clock_out';
+            $status = AttendanceStatus::PENDING;
+        } elseif ($isOvertime) {
+            $effectiveClockOut = null;
+            $approvalType = 'overtime';
+            $status = AttendanceStatus::PENDING;
+        } else {
+            $effectiveClockOut = $scheduledEnd->copy();
         }
 
+<<<<<<< Updated upstream
         // Normal day (no late, no undertime, no overtime) → auto-approve so hours count in Time Tracking.
         // Exception days (late/undertime/overtime) stay pending and go to Approvals for admin to approve/reject.
         $isNormalDay = !$attendance->is_late && !$isUndertime && !$isOvertime;
         $status = $isNormalDay ? AttendanceStatus::APPROVED : AttendanceStatus::PENDING;
+=======
+        // Compute total hours using effective times
+        $endForCalc = $effectiveClockOut ?? $clockOutTime;
+        $totalMinutes = $effectiveStart->diffInMinutes($endForCalc);
+        if ($attendance->break_start && $attendance->break_end) {
+            $totalMinutes -= $attendance->break_start->diffInMinutes($attendance->break_end);
+        }
+        $totalMinutes = max(0, $totalMinutes);
+        $totalHours = round($totalMinutes / 60, 2);
+>>>>>>> Stashed changes
 
         try {
             DB::beginTransaction();
 
             $attendance->update([
                 'clock_out_time' => $clockOutTime,
+                'effective_clock_out_time' => $effectiveClockOut,
                 'clock_out_photo' => $photoPath,
                 'location_lat' => $request->location_lat,
                 'location_lng' => $request->location_lng,
                 'location_address' => $locationAddress,
                 'geofence_location_id' => $geofenceLocation?->id,
                 'total_hours' => $totalHours,
-                'is_undertime' => $isUndertime,
+                'is_undertime' => $isEarlyOut,
                 'is_overtime' => $isOvertime,
+<<<<<<< Updated upstream
+=======
+                'approval_type' => $approvalType ?? $attendance->approval_type,
+>>>>>>> Stashed changes
                 'status' => $status,
             ]);
 
             DB::commit();
 
+            $message = 'Clocked out successfully';
+            if ($status === AttendanceStatus::PENDING) {
+                $message = $isEarlyOut
+                    ? 'Clocked out early. Awaiting supervisor approval.'
+                    : 'Clocked out (overtime). Awaiting supervisor approval.';
+            }
+
             return $this->success([
                 'attendance' => $attendance->load(['intern', 'geofenceLocation']),
                 'total_hours' => $totalHours,
-                'message' => 'Clocked out successfully',
-            ], 'Clocked out successfully');
+                'message' => $message,
+            ], $message);
         } catch (\Exception $e) {
             DB::rollBack();
             // Delete uploaded photo on error

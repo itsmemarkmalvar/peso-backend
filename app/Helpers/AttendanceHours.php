@@ -29,11 +29,12 @@ class AttendanceHours
 
     /**
      * Compute hours for completed attendance (clock-in + clock-out).
+     * Uses effective_clock_in_time and effective_clock_out_time when set (scheduled times for approval flow).
      */
     public static function computeCompletedHours(Attendance $attendance): float
     {
-        $start = $attendance->clock_in_time;
-        $end = $attendance->clock_out_time;
+        $start = $attendance->effective_clock_in_time ?? $attendance->clock_in_time;
+        $end = $attendance->effective_clock_out_time ?? $attendance->clock_out_time;
         if (!$start || !$end) {
             return 0;
         }
@@ -51,12 +52,13 @@ class AttendanceHours
 
     /**
      * Estimate hours when attendance is in progress (clock-in without clock-out).
+     * Uses effective_clock_in_time when set (scheduled start for approval flow).
      */
     public static function estimateInProgressHours(
         Attendance $attendance,
         ?Carbon $now = null
     ): float {
-        $start = $attendance->clock_in_time;
+        $start = $attendance->effective_clock_in_time ?? $attendance->clock_in_time;
         if (!$start) {
             return 0;
         }

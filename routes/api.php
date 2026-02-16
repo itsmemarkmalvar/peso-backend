@@ -119,6 +119,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Attendance
     Route::prefix('attendance')->group(function () {
         Route::post('/clock-in', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'clockIn']);
+        Route::post('/clock-in-correction', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'clockInCorrection']);
         Route::post('/clock-out', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'clockOut']);
         Route::post('/break-start', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'breakStart']);
         Route::post('/break-end', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'breakEnd']);

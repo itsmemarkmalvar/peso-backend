@@ -37,6 +37,10 @@ class Attendance extends Model
         'is_late',
         'is_undertime',
         'is_overtime',
+        'effective_clock_in_time',
+        'effective_clock_out_time',
+        'approval_type',
+        'is_gps_correction',
     ];
 
     protected $casts = [
@@ -45,12 +49,15 @@ class Attendance extends Model
         'clock_out_time' => 'datetime',
         'break_start' => 'datetime',
         'break_end' => 'datetime',
+        'effective_clock_in_time' => 'datetime',
+        'effective_clock_out_time' => 'datetime',
         'location_lat' => 'decimal:8',
         'location_lng' => 'decimal:8',
         'total_hours' => 'decimal:2',
         'is_late' => 'boolean',
         'is_undertime' => 'boolean',
         'is_overtime' => 'boolean',
+        'is_gps_correction' => 'boolean',
         'approved_at' => 'datetime',
         'status' => AttendanceStatus::class,
     ];

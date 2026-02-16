@@ -6,7 +6,12 @@ use App\Enums\AttendanceStatus;
 use App\Helpers\AttendanceHours;
 use App\Http\Controllers\Api\BaseController;
 use App\Models\Attendance;
+<<<<<<< Updated upstream
 use App\Models\Intern;
+=======
+use App\Models\Schedule;
+use Carbon\Carbon;
+>>>>>>> Stashed changes
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -183,12 +188,25 @@ class ApprovalController extends BaseController
         try {
             DB::beginTransaction();
 
-            $attendance->update([
+            $updates = [
                 'status' => AttendanceStatus::APPROVED,
                 'approved_by' => $user->id,
                 'approved_at' => now(),
                 'notes' => $request->comments ?? $attendance->notes,
-            ]);
+            ];
+
+            if ($attendance->approval_type === 'overtime') {
+                $updates['effective_clock_out_time'] = $attendance->clock_out_time;
+                $attendance->update($updates);
+                $totalMinutes = ($attendance->effective_clock_in_time ?? $attendance->clock_in_time)->diffInMinutes($attendance->clock_out_time);
+                if ($attendance->break_start && $attendance->break_end) {
+                    $totalMinutes -= $attendance->break_start->diffInMinutes($attendance->break_end);
+                }
+                $attendance->total_hours = round(max(0, $totalMinutes) / 60, 2);
+                $attendance->save();
+            } else {
+                $attendance->update($updates);
+            }
 
             // Auto-fill end_date when intern completes their total required OJT hours (cumulative, not daily).
             $intern = Intern::find($attendance->intern_id);
@@ -263,12 +281,33 @@ class ApprovalController extends BaseController
         try {
             DB::beginTransaction();
 
-            $attendance->update([
+            $updates = [
                 'status' => AttendanceStatus::REJECTED,
                 'approved_by' => $user->id,
                 'approved_at' => now(),
                 'rejection_reason' => $request->reason,
-            ]);
+            ];
+
+            if ($attendance->approval_type === 'overtime') {
+                $schedule = Schedule::where('intern_id', $attendance->intern_id)
+                    ->where('day_of_week', $attendance->date->dayOfWeek)
+                    ->where('is_active', true)
+                    ->first();
+                $scheduledEnd = $schedule
+                    ? Carbon::parse($attendance->date->format('Y-m-d') . ' ' . $schedule->end_time)
+                    : Carbon::parse($attendance->date->format('Y-m-d') . ' 17:00:00');
+                $updates['effective_clock_out_time'] = $scheduledEnd;
+                $attendance->update($updates);
+                $start = $attendance->effective_clock_in_time ?? $attendance->clock_in_time;
+                $totalMinutes = $start->diffInMinutes($scheduledEnd);
+                if ($attendance->break_start && $attendance->break_end) {
+                    $totalMinutes -= $attendance->break_start->diffInMinutes($attendance->break_end);
+                }
+                $attendance->total_hours = round(max(0, $totalMinutes) / 60, 2);
+                $attendance->save();
+            } else {
+                $attendance->update($updates);
+            }
 
             DB::commit();
 
@@ -302,20 +341,32 @@ class ApprovalController extends BaseController
     }
 
     /**
-     * Determine approval type based on attendance flags
+     * Determine approval type based on attendance flags and approval_type
      */
     private function determineApprovalType(Attendance $attendance): string
     {
+        if ($attendance->approval_type) {
+            return match ($attendance->approval_type) {
+                'late_clock_in' => 'Late',
+                'gps_correction' => 'Correction',
+                'early_clock_out' => 'Early out',
+                'overtime' => 'Overtime',
+                default => 'Correction',
+            };
+        }
         if ($attendance->is_overtime) {
             return 'Overtime';
         }
         if ($attendance->is_undertime) {
-            return 'Undertime';
+            return 'Early out';
         }
-        if ($attendance->is_late) {
+        if ($attendance->is_gps_correction) {
             return 'Correction';
         }
-        return 'Correction'; // Default
+        if ($attendance->is_late) {
+            return 'Late';
+        }
+        return 'Correction';
     }
 
     /**
@@ -347,11 +398,20 @@ class ApprovalController extends BaseController
      */
     private function getReasonTitle(Attendance $attendance): string
     {
+        if ($attendance->approval_type) {
+            return match ($attendance->approval_type) {
+                'late_clock_in' => 'Late clock-in',
+                'gps_correction' => 'GPS/device correction request',
+                'early_clock_out' => 'Early clock-out',
+                'overtime' => 'Overtime hours worked',
+                default => 'Attendance correction request',
+            };
+        }
         if ($attendance->is_overtime) {
             return 'Overtime hours worked';
         }
         if ($attendance->is_undertime) {
-            return 'Undertime - less than required hours';
+            return 'Early clock-out';
         }
         if ($attendance->is_late) {
             return 'Late clock-in';
