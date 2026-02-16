@@ -51,6 +51,14 @@ class InvitationController extends BaseController
      */
     public function accept(Request $request): JsonResponse
     {
+        // Ensure JSON body is merged (e.g. when proxy doesn't populate input)
+        if (! $request->has('token') && $request->getContent()) {
+            $decoded = json_decode($request->getContent(), true);
+            if (is_array($decoded)) {
+                $request->merge($decoded);
+            }
+        }
+
         $validated = $request->validate([
             'token' => 'required|string',
             'password' => 'required|string|min:8|confirmed',

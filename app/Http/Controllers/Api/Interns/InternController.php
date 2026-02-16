@@ -121,6 +121,14 @@ class InternController extends BaseController
 
     public function storeProfile(Request $request): JsonResponse
     {
+        // Ensure JSON body is merged (e.g. when proxy doesn't populate input)
+        if (! $request->has('full_name') && $request->getContent()) {
+            $decoded = json_decode($request->getContent(), true);
+            if (is_array($decoded)) {
+                $request->merge($decoded);
+            }
+        }
+
         $validated = $request->validate([
             'full_name' => 'required|string|max:255',
             'school' => 'required|string|max:255',

@@ -73,6 +73,13 @@ class GeofenceLocationsController extends BaseController
             return $this->forbidden('Only administrators and supervisors can create geofence locations');
         }
 
+        if (! $request->has('name') && $request->getContent()) {
+            $decoded = json_decode($request->getContent(), true);
+            if (is_array($decoded)) {
+                $request->merge($decoded);
+            }
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'address' => 'nullable|string|max:1000',

@@ -119,10 +119,18 @@ class RegistrationRequestsController extends BaseController
     public function approve(Request $request, int $id): JsonResponse
     {
         try {
+            // Ensure JSON body is merged into request (some proxies/clients may not set input)
+            if (! $request->has('role') && $request->getContent()) {
+                $decoded = json_decode($request->getContent(), true);
+                if (is_array($decoded)) {
+                    $request->merge($decoded);
+                }
+            }
+
             $validated = $request->validate([
-            'role' => 'required|string|in:admin,supervisor,gip,intern',
-            'department_id' => 'nullable|integer|exists:departments,id',
-        ]);
+                'role' => 'required|string|in:admin,supervisor,gip,intern',
+                'department_id' => 'nullable|integer|exists:departments,id',
+            ]);
 
         $actor = $request->user();
         $requestedRole = $validated['role'];
@@ -237,7 +245,11 @@ class RegistrationRequestsController extends BaseController
             ? 'Registration request approved. Invitation email has been sent.'
             : 'Registration request approved, but the invitation email could not be sent. Check storage/logs/laravel.log and MAIL_* in .env.');
     } catch (ValidationException $e) {
-        return $this->validationError($e->errors(), $e->getMessage());
+        $message = $e->getMessage();
+        if (config('app.debug') && str_contains($message, 'role')) {
+            $message .= ' Request input: ' . json_encode($request->all()) . ' Raw body: ' . substr($request->getContent() ?: '', 0, 200);
+        }
+        return $this->validationError($e->errors(), $message);
     } catch (QueryException $e) {
         Log::error('Registration request approve failed: ' . $e->getMessage());
         return $this->error($this->getDatabaseErrorMessage($e), 503);
