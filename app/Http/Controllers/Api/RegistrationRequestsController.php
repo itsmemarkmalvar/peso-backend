@@ -134,8 +134,11 @@ class RegistrationRequestsController extends BaseController
 
         $actor = $request->user();
         $requestedRole = $validated['role'];
+        // Supervisors can only assign Intern or GIP (not Admin or Supervisor)
         if ($actor && $actor->isSupervisor()) {
-            $requestedRole = 'intern';
+            if (!in_array($requestedRole, ['intern', 'gip'])) {
+                $requestedRole = 'intern';
+            }
         }
 
         $registrationRequest = RegistrationRequest::findOrFail($id);

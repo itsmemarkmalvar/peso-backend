@@ -67,7 +67,12 @@ class ReportController extends BaseController
                 ];
             });
 
-            // Handle export formats
+            // Handle export formats - admin only (supervisors can preview only)
+            if ($format === 'pdf' || $format === 'excel') {
+                if (!$user->isAdmin()) {
+                    return $this->forbidden('Only administrators can export reports');
+                }
+            }
             if ($format === 'pdf') {
                 return $this->exportDTRToPDF($report->values(), $startDate, $endDate);
             } elseif ($format === 'excel') {
@@ -152,7 +157,12 @@ class ReportController extends BaseController
                 'overtime' => 0,
             ];
             
-            // Handle export formats
+            // Handle export formats - admin only (supervisors can preview only)
+            if ($format === 'pdf' || $format === 'excel') {
+                if (!$user->isAdmin()) {
+                    return $this->forbidden('Only administrators can export reports');
+                }
+            }
             if ($format === 'pdf') {
                 return $this->exportAttendanceToPDF($report->values(), $summary, $startDate, $endDate, $status);
             } elseif ($format === 'excel') {
@@ -195,7 +205,12 @@ class ReportController extends BaseController
             ];
         });
 
-        // Handle export formats
+        // Handle export formats - admin only (supervisors can preview only)
+        if ($format === 'pdf' || $format === 'excel') {
+            if (!$user->isAdmin()) {
+                return $this->forbidden('Only administrators can export reports');
+            }
+        }
         if ($format === 'pdf') {
             return $this->exportAttendanceToPDF($report->values(), $summary, $startDate, $endDate, $status);
         } elseif ($format === 'excel') {
@@ -286,7 +301,12 @@ class ReportController extends BaseController
             'average_hours_per_day' => round($attendance->sum('total_hours') / max($attendance->count(), 1), 2),
         ];
 
-        // Handle export formats
+        // Handle export formats - admin only (supervisors can preview only)
+        if ($format === 'pdf' || $format === 'excel') {
+            if (!$user->isAdmin()) {
+                return $this->forbidden('Only administrators can export reports');
+            }
+        }
         if ($format === 'pdf') {
             return $this->exportHoursToPDF($report->values(), $summary, $startDate, $endDate, $groupBy);
         } elseif ($format === 'excel') {
@@ -313,9 +333,9 @@ class ReportController extends BaseController
     {
         $user = $request->user();
         
-        // Only admin and supervisor can export reports
-        if (!$user->isAdmin() && !$user->isSupervisor()) {
-            return $this->forbidden('Only administrators and supervisors can export reports');
+        // Only admin can export reports (PDF/Excel); supervisors can preview only
+        if (!$user->isAdmin()) {
+            return $this->forbidden('Only administrators can export reports');
         }
 
         $type = $request->type ?? 'dtr'; // dtr, attendance, hours

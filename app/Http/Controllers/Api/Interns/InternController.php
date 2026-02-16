@@ -71,9 +71,8 @@ class InternController extends BaseController
             ->with(['user', 'supervisor', 'department'])
             ->orderBy('full_name');
 
-        if ($user && $user->isSupervisor()) {
-            $query->where('supervisor_user_id', $user->id);
-        } elseif ($request->filled('supervisor_user_id')) {
+        // Admin and supervisor both see all interns (supervisor restrictions are on actions, not on viewing)
+        if ($request->filled('supervisor_user_id')) {
             $query->where('supervisor_user_id', $request->input('supervisor_user_id'));
         }
 

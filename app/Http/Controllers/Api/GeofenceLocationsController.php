@@ -61,9 +61,9 @@ class GeofenceLocationsController extends BaseController
     {
         $user = $request->user();
 
-        // Only admin and supervisor can create geofences
-        if (!$user->isAdmin() && !$user->isSupervisor()) {
-            return $this->forbidden('Only administrators and supervisors can create geofence locations');
+        // Admin only: supervisors are view-only for geofences
+        if (!$user->isAdmin()) {
+            return $this->forbidden('Only administrators can create geofence locations');
         }
 
         if (! $request->has('name') && $request->getContent()) {
@@ -102,9 +102,9 @@ class GeofenceLocationsController extends BaseController
     {
         $user = $request->user();
 
-        // Only admin and supervisor can update geofences
-        if (!$user->isAdmin() && !$user->isSupervisor()) {
-            return $this->forbidden('Only administrators and supervisors can update geofence locations');
+        // Admin only: supervisors are view-only for geofences
+        if (!$user->isAdmin()) {
+            return $this->forbidden('Only administrators can update geofence locations');
         }
 
         $location = GeofenceLocation::find($id);
@@ -144,9 +144,9 @@ class GeofenceLocationsController extends BaseController
     {
         $user = $request->user();
 
-        // Only admin and supervisor can delete geofences
-        if (!$user->isAdmin() && !$user->isSupervisor()) {
-            return $this->forbidden('Only administrators and supervisors can delete geofence locations');
+        // Admin only: supervisors are view-only for geofences
+        if (!$user->isAdmin()) {
+            return $this->forbidden('Only administrators can delete geofence locations');
         }
 
         $location = GeofenceLocation::find($id);
