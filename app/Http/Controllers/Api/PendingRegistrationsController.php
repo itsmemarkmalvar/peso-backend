@@ -16,9 +16,15 @@ class PendingRegistrationsController extends BaseController
 {
     /**
      * List all pending registrations
+     * Admin and supervisor only
      */
     public function index(Request $request): JsonResponse
     {
+        $user = $request->user();
+        if (!$user->isAdmin() && !$user->isSupervisor()) {
+            return $this->forbidden('Only administrators and supervisors can list pending registrations.');
+        }
+
         $status = $request->query('status', 'pending');
         
         $query = PendingRegistration::with('approver')
@@ -35,9 +41,15 @@ class PendingRegistrationsController extends BaseController
 
     /**
      * Approve a pending registration and create user account
+     * Admin and supervisor only. Never returns temp_password in response.
      */
     public function approve(Request $request, int $id): JsonResponse
     {
+        $actor = $request->user();
+        if (!$actor->isAdmin() && !$actor->isSupervisor()) {
+            return $this->forbidden('Only administrators and supervisors can approve registrations.');
+        }
+
         $pending = PendingRegistration::findOrFail($id);
 
         if ($pending->status !== 'pending') {
@@ -48,7 +60,7 @@ class PendingRegistrationsController extends BaseController
         if (User::where('email', $pending->email)->exists()) {
             $pending->update([
                 'status' => 'rejected',
-                'approved_by' => $request->user()->id,
+                'approved_by' => $actor->id,
                 'approved_at' => now(),
                 'rejection_reason' => 'Email already exists in system',
             ]);
@@ -86,21 +98,26 @@ class PendingRegistrationsController extends BaseController
         // Update pending registration
         $pending->update([
             'status' => 'approved',
-            'approved_by' => $request->user()->id,
+            'approved_by' => $actor->id,
             'approved_at' => now(),
         ]);
 
         return $this->success([
             'user' => $user,
-            'temp_password' => $tempPassword, // In production, send via email instead
-        ], 'Registration approved. User account created successfully.');
+        ], 'Registration approved. User account created successfully. Send credentials via secure channel.');
     }
 
     /**
      * Reject a pending registration
+     * Admin and supervisor only
      */
     public function reject(Request $request, int $id): JsonResponse
     {
+        $user = $request->user();
+        if (!$user->isAdmin() && !$user->isSupervisor()) {
+            return $this->forbidden('Only administrators and supervisors can reject registrations.');
+        }
+
         $validated = $request->validate([
             'reason' => 'nullable|string|max:500',
         ]);
@@ -123,9 +140,15 @@ class PendingRegistrationsController extends BaseController
 
     /**
      * Get a single pending registration
+     * Admin and supervisor only
      */
-    public function show(int $id): JsonResponse
+    public function show(Request $request, int $id): JsonResponse
     {
+        $user = $request->user();
+        if (!$user->isAdmin() && !$user->isSupervisor()) {
+            return $this->forbidden('Only administrators and supervisors can view pending registrations.');
+        }
+
         $pending = PendingRegistration::with('approver')->findOrFail($id);
         return $this->success($pending);
     }

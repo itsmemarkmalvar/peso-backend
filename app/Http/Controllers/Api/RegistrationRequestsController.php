@@ -20,10 +20,16 @@ class RegistrationRequestsController extends BaseController
 {
     /**
      * List all registration requests
+     * Admin and supervisor only
      */
     public function index(Request $request): JsonResponse
     {
         try {
+            $user = $request->user();
+            if (!$user->isAdmin() && !$user->isSupervisor()) {
+                return $this->forbidden('Only administrators and supervisors can list registration requests.');
+            }
+
             $status = $request->query('status', 'pending');
 
             $query = RegistrationRequest::with('approver')
@@ -48,12 +54,18 @@ class RegistrationRequestsController extends BaseController
 
     /**
      * Get a single registration request
+     * Admin and supervisor only
      */
-    public function show(int $id): JsonResponse
+    public function show(Request $request, int $id): JsonResponse
     {
         try {
-            $request = RegistrationRequest::with('approver')->findOrFail($id);
-            return $this->success($request);
+            $user = $request->user();
+            if (!$user->isAdmin() && !$user->isSupervisor()) {
+                return $this->forbidden('Only administrators and supervisors can view registration requests.');
+            }
+
+            $registrationRequest = RegistrationRequest::with('approver')->findOrFail($id);
+            return $this->success($registrationRequest);
         } catch (QueryException $e) {
             Log::error('Registration request show failed: ' . $e->getMessage());
             return $this->error($this->getDatabaseErrorMessage($e), 503);
@@ -62,11 +74,17 @@ class RegistrationRequestsController extends BaseController
 
     /**
      * List users created via registration approval (invitation sent).
+     * Admin and supervisor only.
      * Query: status=pending|active|all (default: all). pending = not yet accepted invitation; active = accepted.
      */
     public function approvedUsers(Request $request): JsonResponse
     {
         try {
+            $user = $request->user();
+            if (!$user->isAdmin() && !$user->isSupervisor()) {
+                return $this->forbidden('Only administrators and supervisors can view approved users.');
+            }
+
             $status = $request->query('status', 'all');
             $query = User::whereNotNull('invitation_sent_at')
                 ->orderByDesc('invitation_sent_at');
@@ -115,10 +133,16 @@ class RegistrationRequestsController extends BaseController
 
     /**
      * Approve a registration request and create user account
+     * Admin and supervisor only
      */
     public function approve(Request $request, int $id): JsonResponse
     {
         try {
+            $actor = $request->user();
+            if (!$actor->isAdmin() && !$actor->isSupervisor()) {
+                return $this->forbidden('Only administrators and supervisors can approve registration requests.');
+            }
+
             // Ensure JSON body is merged into request (some proxies/clients may not set input)
             if (! $request->has('role') && $request->getContent()) {
                 $decoded = json_decode($request->getContent(), true);
@@ -132,10 +156,9 @@ class RegistrationRequestsController extends BaseController
                 'department_id' => 'nullable|integer|exists:departments,id',
             ]);
 
-        $actor = $request->user();
         $requestedRole = $validated['role'];
         // Supervisors can only assign Intern or GIP (not Admin or Supervisor)
-        if ($actor && $actor->isSupervisor()) {
+        if ($actor->isSupervisor()) {
             if (!in_array($requestedRole, ['intern', 'gip'])) {
                 $requestedRole = 'intern';
             }
@@ -268,10 +291,16 @@ class RegistrationRequestsController extends BaseController
 
     /**
      * Reject a registration request
+     * Admin and supervisor only
      */
     public function reject(Request $request, int $id): JsonResponse
     {
         try {
+            $user = $request->user();
+            if (!$user->isAdmin() && !$user->isSupervisor()) {
+                return $this->forbidden('Only administrators and supervisors can reject registration requests.');
+            }
+
             $validated = $request->validate([
                 'reason' => 'nullable|string|max:500',
             ]);
