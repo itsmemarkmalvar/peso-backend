@@ -18,87 +18,81 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-// Public routes
+// Public routes (throttle on public auth/invitation to reduce brute-force and abuse)
 Route::prefix('auth')->group(function () {
-    Route::post('/login', [App\Http\Controllers\Api\Auth\AuthController::class, 'login']);
-    Route::post('/register', [App\Http\Controllers\Api\Auth\AuthController::class, 'register']);
-    Route::post('/register-request', [App\Http\Controllers\Api\Auth\AuthController::class, 'registerRequest']);
+    Route::post('/login', [App\Http\Controllers\Api\Auth\AuthController::class, 'login'])->middleware('throttle:10,1');
+    Route::post('/register', [App\Http\Controllers\Api\Auth\AuthController::class, 'register'])->middleware('throttle:20,1');
+    Route::post('/register-request', [App\Http\Controllers\Api\Auth\AuthController::class, 'registerRequest'])->middleware('throttle:20,1');
     Route::post('/logout', [App\Http\Controllers\Api\Auth\AuthController::class, 'logout'])->middleware('auth:sanctum');
     Route::get('/me', [App\Http\Controllers\Api\Auth\AuthController::class, 'me'])->middleware('auth:sanctum');
 });
 
-// Invitation routes (public)
 Route::prefix('invitation')->group(function () {
-    Route::get('/verify', [App\Http\Controllers\Api\Auth\InvitationController::class, 'verify']);
-    Route::post('/accept', [App\Http\Controllers\Api\Auth\InvitationController::class, 'accept']);
+    Route::get('/verify', [App\Http\Controllers\Api\Auth\InvitationController::class, 'verify'])->middleware('throttle:30,1');
+    Route::post('/accept', [App\Http\Controllers\Api\Auth\InvitationController::class, 'accept'])->middleware('throttle:30,1');
 });
 
-// Debug logo route (public - for testing logo file)
-Route::get('/test-logo', function () {
-    $logoPath = public_path('images/image-Photoroom.png');
-    $logoPath2 = base_path('public/images/image-Photoroom.png');
-    
-    $logoBase64 = null;
-    if (file_exists($logoPath)) {
-        try {
-            $logoData = file_get_contents($logoPath);
-            $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
-        } catch (\Exception $e) {
-            // Ignore
+// Debug routes: only registered when not in production (avoid exposing paths/previews)
+if (! app()->environment('production')) {
+    Route::get('/test-logo', function () {
+        $logoPath = public_path('images/image-Photoroom.png');
+        $logoPath2 = base_path('public/images/image-Photoroom.png');
+
+        $logoBase64 = null;
+        if (file_exists($logoPath)) {
+            try {
+                $logoData = file_get_contents($logoPath);
+                $logoBase64 = 'data:image/png;base64,' . base64_encode($logoData);
+            } catch (\Exception $e) {
+                // Ignore
+            }
         }
-    }
-    
-    return response()->json([
-        'public_path' => $logoPath,
-        'base_path' => $logoPath2,
-        'exists_public' => file_exists($logoPath),
-        'exists_base' => file_exists($logoPath2),
-        'public_path_resolved' => realpath($logoPath) ?: 'not found',
-        'base_path_resolved' => realpath($logoPath2) ?: 'not found',
-        'base64_length' => file_exists($logoPath) ? strlen(base64_encode(file_get_contents($logoPath))) : 0,
-        'base64_preview' => $logoBase64 ? substr($logoBase64, 0, 100) . '...' : 'not generated',
-        'file_size' => file_exists($logoPath) ? filesize($logoPath) : 0,
-    ]);
-});
 
-// Preview email HTML (public - for testing email template rendering)
-Route::get('/preview-invitation-email', function (Request $request) {
-    $role = $request->query('role', 'supervisor');
-    
-    // Create a mock user object for testing
-    $mockUser = (object) [
-        'name' => 'Test User',
-        'email' => 'test@example.com',
-    ];
-    
-    // Generate a test invitation URL
-    $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000');
-    $testToken = 'test-token-' . \Illuminate\Support\Str::random(32);
-    $invitationUrl = "{$frontendUrl}/invitation/accept?token={$testToken}";
-    
-    // Create mail instance to get logo data (userId 0 = preview only; view is rendered with $mockUser below)
-    $mail = new App\Mail\InvitationMail(0, $invitationUrl, $role);
-    
-    // Render the email view
-    try {
-        $html = view('emails.invitation', [
-            'user' => $mockUser,
-            'invitationUrl' => $invitationUrl,
-            'role' => $role,
-            'logoBase64' => $mail->logoBase64,
-            'logoPath' => $mail->logoPath,
-            // Note: $message is only available when actually sending email via Mail::send()
-            // For preview, we rely on base64 which should work
-        ])->render();
-        
-        return response($html)->header('Content-Type', 'text/html');
-    } catch (\Exception $e) {
         return response()->json([
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
-        ], 500);
-    }
-});
+            'public_path' => $logoPath,
+            'base_path' => $logoPath2,
+            'exists_public' => file_exists($logoPath),
+            'exists_base' => file_exists($logoPath2),
+            'public_path_resolved' => realpath($logoPath) ?: 'not found',
+            'base_path_resolved' => realpath($logoPath2) ?: 'not found',
+            'base64_length' => file_exists($logoPath) ? strlen(base64_encode(file_get_contents($logoPath))) : 0,
+            'base64_preview' => $logoBase64 ? substr($logoBase64, 0, 100) . '...' : 'not generated',
+            'file_size' => file_exists($logoPath) ? filesize($logoPath) : 0,
+        ]);
+    });
+
+    Route::get('/preview-invitation-email', function (Request $request) {
+        $role = $request->query('role', 'supervisor');
+
+        $mockUser = (object) [
+            'name' => 'Test User',
+            'email' => 'test@example.com',
+        ];
+
+        $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000');
+        $testToken = 'test-token-' . \Illuminate\Support\Str::random(32);
+        $invitationUrl = "{$frontendUrl}/invitation/accept?token={$testToken}";
+
+        $mail = new App\Mail\InvitationMail(0, $invitationUrl, $role);
+
+        try {
+            $html = view('emails.invitation', [
+                'user' => $mockUser,
+                'invitationUrl' => $invitationUrl,
+                'role' => $role,
+                'logoBase64' => $mail->logoBase64,
+                'logoPath' => $mail->logoPath,
+            ])->render();
+
+            return response($html)->header('Content-Type', 'text/html');
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ], 500);
+        }
+    });
+}
 
 // Protected routes (require authentication)
 Route::middleware('auth:sanctum')->group(function () {
@@ -130,6 +124,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'index']);
         Route::get('/today', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'today']);
         Route::get('/today-all', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'todayAll']);
+        Route::get('/live-locations', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'liveLocations']);
         Route::get('/approved-hours-summary', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'approvedHoursSummary']);
         Route::get('/history', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'history']);
         Route::get('/{id}', [App\Http\Controllers\Api\Attendance\AttendanceController::class, 'show']);

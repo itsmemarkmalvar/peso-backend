@@ -40,13 +40,14 @@ class LeaveController extends BaseController
         $user = $request->user();
         $query = Leave::with('intern')->orderByDesc('created_at');
 
-        // Intern/GIP: only their own leaves (reuse Intern flow)
         if ($user->isInternOrGip()) {
             $intern = Intern::where('user_id', $user->id)->first();
             if (!$intern) {
                 return $this->success([], 'Leave requests list');
             }
             $query->where('intern_id', $intern->id);
+        } elseif (!$user->isAdmin() && !$user->isSupervisor()) {
+            return $this->forbidden('Only administrators and supervisors can list all leave requests.');
         }
 
         $leaves = $query->get()
@@ -61,13 +62,14 @@ class LeaveController extends BaseController
         $user = $request->user();
         $query = Leave::with('intern')->where('status', 'pending')->orderByDesc('created_at');
 
-        // Intern/GIP: only their own pending leaves (reuse Intern flow)
         if ($user->isInternOrGip()) {
             $intern = Intern::where('user_id', $user->id)->first();
             if (!$intern) {
                 return $this->success([], 'Pending leave requests');
             }
             $query->where('intern_id', $intern->id);
+        } elseif (!$user->isAdmin() && !$user->isSupervisor()) {
+            return $this->forbidden('Only administrators and supervisors can list pending leave requests.');
         }
 
         $leaves = $query->get()
@@ -112,6 +114,11 @@ class LeaveController extends BaseController
 
     public function approve(Request $request, int $id): JsonResponse
     {
+        $user = $request->user();
+        if (!$user->isAdmin() && !$user->isSupervisor()) {
+            return $this->forbidden('Only administrators and supervisors can approve leave requests.');
+        }
+
         $validated = $request->validate([
             'comments' => 'nullable|string|max:1000',
         ]);
@@ -143,6 +150,11 @@ class LeaveController extends BaseController
 
     public function reject(Request $request, int $id): JsonResponse
     {
+        $user = $request->user();
+        if (!$user->isAdmin() && !$user->isSupervisor()) {
+            return $this->forbidden('Only administrators and supervisors can reject leave requests.');
+        }
+
         $validated = $request->validate([
             'reason' => 'required|string|max:1000',
             'comments' => 'nullable|string|max:1000',

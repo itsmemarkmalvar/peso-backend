@@ -715,6 +715,69 @@ class AttendanceController extends BaseController
     }
 
     /**
+     * Get live locations: interns currently clocked in (today, no clock-out yet).
+     * Admin/supervisor only. Returns last activity time, location, and verification (GPS/selfie).
+     */
+    public function liveLocations(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user->isAdmin() && !$user->isSupervisor()) {
+            return $this->forbidden('Only administrators and supervisors can view live locations.');
+        }
+
+        $today = now()->startOfDay();
+        $records = Attendance::with(['intern', 'geofenceLocation'])
+            ->where('date', $today)
+            ->whereNotNull('clock_in_time')
+            ->whereNull('clock_out_time')
+            ->orderByDesc('clock_in_time')
+            ->get();
+
+        $now = now();
+        $items = $records->map(function (Attendance $att) use ($now) {
+            $intern = $att->intern;
+            $lastAt = $att->clock_in_time;
+            if ($att->break_end) {
+                $lastAt = $att->break_end->isAfter($lastAt) ? $att->break_end : $lastAt;
+            }
+            if ($att->break_start) {
+                $lastAt = $att->break_start->isAfter($lastAt) ? $att->break_start : $lastAt;
+            }
+            $lastAt = $lastAt ? \Carbon\Carbon::parse($lastAt) : null;
+
+            $status = 'Clocked in';
+            if ($att->break_start && !$att->break_end) {
+                $status = 'On break';
+            }
+
+            $location = $att->location_address
+                ?? ($att->geofenceLocation ? $att->geofenceLocation->name : null)
+                ?? '—';
+
+            $verification = [];
+            if ($att->location_lat !== null && $att->location_lng !== null) {
+                $verification[] = 'GPS';
+            }
+            if (!empty($att->clock_in_photo)) {
+                $verification[] = 'Selfie';
+            }
+
+            return [
+                'intern_id' => $att->intern_id,
+                'intern_name' => $intern ? $intern->full_name : 'Unknown',
+                'student_id' => $intern ? $intern->student_id : '',
+                'company_name' => $intern ? $intern->company_name : '',
+                'status' => $status,
+                'last_seen_at' => $lastAt ? $lastAt->toIso8601String() : null,
+                'location' => $location,
+                'verification' => $verification,
+            ];
+        })->values()->all();
+
+        return $this->success($items, 'Live locations retrieved');
+    }
+
+    /**
      * Get attendance history
      */
     public function history(Request $request): JsonResponse

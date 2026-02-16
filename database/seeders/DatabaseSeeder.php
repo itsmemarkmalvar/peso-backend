@@ -16,5 +16,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call(DepartmentSeeder::class);
         $this->call(AdminSeeder::class);
+        $this->call(GeofenceSeeder::class);
+        $this->call(InternAndGipSeeder::class);
     }
 }
