@@ -6,12 +6,9 @@ use App\Enums\AttendanceStatus;
 use App\Helpers\AttendanceHours;
 use App\Http\Controllers\Api\BaseController;
 use App\Models\Attendance;
-<<<<<<< Updated upstream
 use App\Models\Intern;
-=======
 use App\Models\Schedule;
 use Carbon\Carbon;
->>>>>>> Stashed changes
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;

@@ -500,12 +500,11 @@ class AttendanceController extends BaseController
             $effectiveClockOut = $scheduledEnd->copy();
         }
 
-<<<<<<< Updated upstream
         // Normal day (no late, no undertime, no overtime) → auto-approve so hours count in Time Tracking.
         // Exception days (late/undertime/overtime) stay pending and go to Approvals for admin to approve/reject.
         $isNormalDay = !$attendance->is_late && !$isUndertime && !$isOvertime;
         $status = $isNormalDay ? AttendanceStatus::APPROVED : AttendanceStatus::PENDING;
-=======
+
         // Compute total hours using effective times
         $endForCalc = $effectiveClockOut ?? $clockOutTime;
         $totalMinutes = $effectiveStart->diffInMinutes($endForCalc);
@@ -514,7 +513,6 @@ class AttendanceController extends BaseController
         }
         $totalMinutes = max(0, $totalMinutes);
         $totalHours = round($totalMinutes / 60, 2);
->>>>>>> Stashed changes
 
         try {
             DB::beginTransaction();
@@ -530,10 +528,7 @@ class AttendanceController extends BaseController
                 'total_hours' => $totalHours,
                 'is_undertime' => $isEarlyOut,
                 'is_overtime' => $isOvertime,
-<<<<<<< Updated upstream
-=======
                 'approval_type' => $approvalType ?? $attendance->approval_type,
->>>>>>> Stashed changes
                 'status' => $status,
             ]);
 
