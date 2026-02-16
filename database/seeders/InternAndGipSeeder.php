@@ -67,6 +67,7 @@ class InternAndGipSeeder extends Seeder
 
     private function seedSupervisor(): void
     {
+        $deptId = Department::where('is_active', true)->first()?->id;
         $user = User::updateOrCreate(
             ['email' => 'supervisor@example.com'],
             [
@@ -75,6 +76,7 @@ class InternAndGipSeeder extends Seeder
                 'password' => Hash::make(self::DEFAULT_PASSWORD),
                 'role' => UserRole::SUPERVISOR,
                 'status' => 'active',
+                'department_id' => $deptId,
             ]
         );
         $this->supervisorId = $user->id;

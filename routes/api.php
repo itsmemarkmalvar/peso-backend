@@ -187,6 +187,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Departments
     Route::prefix('departments')->group(function () {
         Route::get('/', [App\Http\Controllers\Api\DepartmentsController::class, 'index']);
+        Route::get('/{id}/supervisors', [App\Http\Controllers\Api\DepartmentsController::class, 'supervisors']);
     });
 
     // Notifications

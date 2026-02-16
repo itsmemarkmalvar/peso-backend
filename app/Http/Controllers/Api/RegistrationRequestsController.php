@@ -154,6 +154,7 @@ class RegistrationRequestsController extends BaseController
             $validated = $request->validate([
                 'role' => 'required|string|in:admin,supervisor,gip,intern',
                 'department_id' => 'nullable|integer|exists:departments,id',
+                'supervisor_user_id' => 'nullable|integer|exists:users,id',
             ]);
 
         $requestedRole = $validated['role'];
@@ -214,7 +215,8 @@ class RegistrationRequestsController extends BaseController
         };
 
         // Create user account (without password - they'll set it via invitation)
-        $user = User::create([
+        // For supervisor role, set department_id so they appear in department supervisors list
+        $userData = [
             'name' => $registrationRequest->full_name,
             'username' => $candidate,
             'email' => $registrationRequest->email,
@@ -223,7 +225,11 @@ class RegistrationRequestsController extends BaseController
             'status' => 'pending', // Set to pending until invitation is accepted
             'invitation_token' => $invitationToken,
             'invitation_sent_at' => now(),
-        ]);
+        ];
+        if (!empty($validated['department_id'])) {
+            $userData['department_id'] = $validated['department_id'];
+        }
+        $user = User::create($userData);
 
         // Update registration request
         $registrationRequest->update([
@@ -234,7 +240,7 @@ class RegistrationRequestsController extends BaseController
 
         // Create Intern record for intern/gip so they appear in People and can complete onboarding later
         if (in_array($requestedRole, ['intern', 'gip'])) {
-            Intern::create([
+            $internData = [
                 'user_id' => $user->id,
                 'full_name' => $registrationRequest->full_name,
                 'department_id' => $validated['department_id'],
@@ -244,7 +250,19 @@ class RegistrationRequestsController extends BaseController
                 'emergency_contact_name' => 'Pending',
                 'emergency_contact_phone' => 'Pending',
                 'is_active' => true,
-            ]);
+            ];
+
+            // Auto-fill supervisor when supervisor_user_id is provided
+            if (!empty($validated['supervisor_user_id'])) {
+                $supervisor = User::find($validated['supervisor_user_id']);
+                if ($supervisor) {
+                    $internData['supervisor_user_id'] = $supervisor->id;
+                    $internData['supervisor_name'] = $supervisor->name;
+                    $internData['supervisor_email'] = $supervisor->email;
+                }
+            }
+
+            Intern::create($internData);
         }
 
         // Generate invitation URL

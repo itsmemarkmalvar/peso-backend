@@ -25,6 +25,7 @@ class User extends Authenticatable
         'password',
         'role',
         'status',
+        'department_id',
         'invitation_token',
         'invitation_sent_at',
         'invitation_accepted_at',
@@ -59,5 +60,10 @@ class User extends Authenticatable
     public function supervisedInterns()
     {
         return $this->hasMany(Intern::class, 'supervisor_user_id');
+    }
+
+    public function department()
+    {
+        return $this->belongsTo(Department::class);
     }
 }

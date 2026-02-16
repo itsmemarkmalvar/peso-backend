@@ -19,4 +19,10 @@ class Department extends Model
     protected $casts = [
         'is_active' => 'boolean',
     ];
+
+    public function supervisors()
+    {
+        return $this->hasMany(User::class, 'department_id')
+            ->where('role', \App\Enums\UserRole::SUPERVISOR);
+    }
 }
