@@ -268,14 +268,14 @@ class ReportController extends BaseController
             })->values();
         } elseif ($groupBy === 'company') {
             $report = $attendance->groupBy(function ($record) {
-                return $record->intern?->company_name ?? 'Unknown';
-            })->map(function ($records, $company) {
+                return $record->intern?->department?->name ?? 'Unknown';
+            })->map(function ($records, $department) {
                 $totalHours = $records->sum('total_hours');
                 $totalDays = $records->count();
                 $internCount = $records->pluck('intern_id')->unique()->count();
                 
                 return [
-                    'company' => $company,
+                    'company' => $department,
                     'total_hours' => round($totalHours, 2),
                     'total_days' => $totalDays,
                     'intern_count' => $internCount,

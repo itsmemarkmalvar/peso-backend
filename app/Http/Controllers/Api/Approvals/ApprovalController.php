@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api\Approvals;
 
 use App\Enums\AttendanceStatus;
+use App\Helpers\AttendanceHours;
 use App\Http\Controllers\Api\BaseController;
 use App\Models\Attendance;
+use App\Models\Intern;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -188,6 +190,16 @@ class ApprovalController extends BaseController
                 'notes' => $request->comments ?? $attendance->notes,
             ]);
 
+            // Auto-fill end_date when intern completes their total required OJT hours (cumulative, not daily).
+            $intern = Intern::find($attendance->intern_id);
+            if ($intern && $intern->required_hours > 0 && $intern->end_date === null) {
+                $totalApprovedHours = $this->getTotalApprovedHours($attendance->intern_id);
+                if ($totalApprovedHours >= (float) $intern->required_hours) {
+                    // Use the date of the attendance that completed the requirement (the work day), not the approval date.
+                    $intern->update(['end_date' => $attendance->date->toDateString()]);
+                }
+            }
+
             DB::commit();
 
             $transformed = [
@@ -304,6 +316,30 @@ class ApprovalController extends BaseController
             return 'Correction';
         }
         return 'Correction'; // Default
+    }
+
+    /**
+     * Compute total approved hours for an intern (used to auto-fill end_date at 100% completion).
+     */
+    private function getTotalApprovedHours(int $internId): float
+    {
+        $records = Attendance::where('intern_id', $internId)
+            ->where('status', AttendanceStatus::APPROVED)
+            ->get();
+
+        $total = 0.0;
+        foreach ($records as $att) {
+            $hours = null;
+            if ($att->total_hours !== null && (float) $att->total_hours > 0) {
+                $hours = (float) $att->total_hours;
+            } elseif ($att->clock_in_time && $att->clock_out_time) {
+                $hours = AttendanceHours::computeCompletedHours($att);
+            }
+            if ($hours !== null) {
+                $total += $hours;
+            }
+        }
+        return $total;
     }
 
     /**

@@ -734,7 +734,7 @@ class AttendanceController extends BaseController
         }
 
         $today = now()->startOfDay();
-        $records = Attendance::with(['intern', 'geofenceLocation'])
+        $records = Attendance::with(['intern.department', 'geofenceLocation'])
             ->where('date', $today)
             ->whereNotNull('clock_in_time')
             ->whereNull('clock_out_time')
@@ -774,7 +774,7 @@ class AttendanceController extends BaseController
                 'intern_id' => $att->intern_id,
                 'intern_name' => $intern ? $intern->full_name : 'Unknown',
                 'student_id' => $intern ? $intern->student_id : '',
-                'company_name' => $intern ? $intern->company_name : '',
+                'company_name' => $intern && $intern->department ? $intern->department->name : '',
                 'status' => $status,
                 'last_seen_at' => $lastAt ? $lastAt->toIso8601String() : null,
                 'location' => $location,

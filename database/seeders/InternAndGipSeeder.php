@@ -113,8 +113,6 @@ class InternAndGipSeeder extends Seeder
     private function seedInternProfile(User $user, array $departmentIds): void
     {
         $deptId = $departmentIds[array_rand($departmentIds)] ?? null;
-        $department = $deptId ? Department::find($deptId) : null;
-        $companyName = $department?->name ?? 'PESO';
         $studentId = 'STU-' . str_pad((string) $user->id, 5, '0', STR_PAD_LEFT);
 
         $intern = Intern::updateOrCreate(
@@ -126,12 +124,10 @@ class InternAndGipSeeder extends Seeder
                 'full_name' => $user->name,
                 'school' => 'Cabuyao State University',
                 'course' => 'BS Information Technology',
-                'year_level' => (string) rand(2, 4),
                 'phone' => '09' . str_pad((string) rand(0, 999999999), 9, '0'),
                 'emergency_contact_name' => 'Emergency Contact ' . $user->name,
                 'emergency_contact_phone' => '09' . str_pad((string) rand(0, 999999999), 9, '0'),
                 'required_hours' => 200,
-                'company_name' => $companyName,
                 'supervisor_name' => 'Supervisor One',
                 'supervisor_email' => 'supervisor@example.com',
                 'start_date' => now()->subMonths(2)->startOfMonth(),

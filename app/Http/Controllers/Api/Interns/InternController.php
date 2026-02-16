@@ -58,7 +58,6 @@ class InternController extends BaseController
             'supervisor_user_id' => $intern->supervisor_user_id,
             'supervisor_name' => $intern->supervisor_name,
             'supervisor_email' => $intern->supervisor_email,
-            'supervisor_contact' => $intern->supervisor_contact,
             'supervisor' => $intern->relationLoaded('supervisor') && $intern->supervisor
                 ? [
                     'id' => $intern->supervisor->id,
@@ -88,7 +87,9 @@ class InternController extends BaseController
             $query->where(function ($q) use ($search) {
                 $q->where('full_name', 'like', "%{$search}%")
                     ->orWhere('student_id', 'like', "%{$search}%")
-                    ->orWhere('company_name', 'like', "%{$search}%")
+                    ->orWhereHas('department', function ($deptQuery) use ($search) {
+                        $deptQuery->where('name', 'like', "%{$search}%");
+                    })
                     ->orWhereHas('user', function ($userQuery) use ($search) {
                         $userQuery->where('email', 'like', "%{$search}%")
                             ->orWhere('username', 'like', "%{$search}%");
@@ -118,8 +119,6 @@ class InternController extends BaseController
                     'email' => optional($intern->user)->email,
                     'student_id' => $intern->student_id,
                     'course' => $intern->course,
-                    'year_level' => $intern->year_level,
-                    'company_name' => $intern->company_name,
                     'department_id' => $intern->department_id,
                     'department_name' => $intern->department?->name,
                     'supervisor_name' => $intern->supervisor_name,
@@ -240,6 +239,7 @@ class InternController extends BaseController
             'weekly_availability' => $validated['weekly_availability'],
             'onboarded_at' => now(),
             'is_active' => true,
+            'start_date' => $intern->start_date ?? now()->toDateString(), // Auto-fill on first onboarding completion
         ];
         if ($profilePhotoPath !== null) {
             $internData['profile_photo'] = $profilePhotoPath;
@@ -317,19 +317,16 @@ class InternController extends BaseController
             'student_id' => $intern->student_id,
             'school' => $intern->school,
             'course' => $intern->course,
-            'year_level' => $intern->year_level,
             'phone' => $intern->phone,
             'emergency_contact_name' => $intern->emergency_contact_name,
             'emergency_contact_phone' => $intern->emergency_contact_phone,
             'required_hours' => $intern->required_hours === null ? null : (int) $intern->required_hours,
             'weekly_availability' => $intern->weekly_availability,
-            'company_name' => $intern->company_name,
             'department_id' => $intern->department_id,
             'department_name' => $intern->department?->name,
             'supervisor_user_id' => $intern->supervisor_user_id,
             'supervisor_name' => $intern->supervisor_name,
             'supervisor_email' => $intern->supervisor?->email ?? $intern->supervisor_email,
-            'supervisor_contact' => $intern->supervisor_contact,
             'start_date' => optional($intern->start_date)->toDateString(),
             'end_date' => optional($intern->end_date)->toDateString(),
             'onboarded_at' => optional($intern->onboarded_at)->toISOString(),
@@ -353,17 +350,14 @@ class InternController extends BaseController
             'full_name' => ['sometimes', 'string', 'max:255'],
             'school' => ['sometimes', 'string', 'max:255'],
             'course' => ['sometimes', 'string', 'max:255'],
-            'year_level' => ['sometimes', 'nullable', 'string', 'max:50'],
             'phone' => ['sometimes', 'string', 'max:50'],
             'emergency_contact_name' => ['sometimes', 'string', 'max:255'],
             'emergency_contact_phone' => ['sometimes', 'string', 'max:50'],
             'required_hours' => ['sometimes', 'nullable', 'integer', 'min:0'],
             'department_id' => ['sometimes', 'nullable', 'integer', 'exists:departments,id'],
             'supervisor_user_id' => ['sometimes', 'nullable', 'integer', 'exists:users,id'],
-            'company_name' => ['sometimes', 'nullable', 'string', 'max:255'],
             'supervisor_name' => ['sometimes', 'nullable', 'string', 'max:255'],
             'supervisor_email' => ['sometimes', 'nullable', 'string', 'email'],
-            'supervisor_contact' => ['sometimes', 'nullable', 'string', 'max:255'],
             'start_date' => ['sometimes', 'nullable', 'date'],
             'end_date' => ['sometimes', 'nullable', 'date'],
             'is_active' => ['sometimes', 'boolean'],

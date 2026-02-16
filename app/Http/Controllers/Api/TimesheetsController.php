@@ -122,7 +122,7 @@ class TimesheetsController extends BaseController
             $timesheetRows[] = [
                 'intern_id' => $intern->id,
                 'intern' => $intern->full_name ?? $intern->user->name ?? 'Unknown',
-                'company' => $intern->company_name ?? '-',
+                'company' => $intern->department?->name ?? '-',
                 'department_name' => $intern->department?->name,
                 'id' => $intern->student_id ?? "INT-{$intern->id}",
                 'days' => $days,
@@ -284,7 +284,7 @@ class TimesheetsController extends BaseController
             'intern' => [
                 'id' => $intern->id,
                 'name' => $intern->full_name ?? $intern->user->name ?? 'Unknown',
-                'company' => $intern->company_name ?? '-',
+                'company' => $intern->department?->name ?? '-',
                 'student_id' => $intern->student_id ?? "INT-{$intern->id}",
             ],
             'date_range' => [
