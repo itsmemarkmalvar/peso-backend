@@ -8,6 +8,7 @@ use App\Models\SchoolSchedule;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class InternController extends BaseController
 {
@@ -34,10 +35,17 @@ class InternController extends BaseController
     }
     private function formatInternProfile(Intern $intern): array
     {
+        $profilePhotoUrl = $intern->profile_photo
+            ? (str_starts_with($intern->profile_photo, 'http')
+                ? $intern->profile_photo
+                : '/storage/' . $intern->profile_photo)
+            : null;
+
         return [
             'id' => $intern->id,
             'user_id' => $intern->user_id,
             'full_name' => $intern->full_name,
+            'profile_photo' => $profilePhotoUrl,
             'school' => $intern->school,
             'program' => $intern->course,
             'phone' => $intern->phone,
@@ -97,6 +105,12 @@ class InternController extends BaseController
                     ? $user->role->value
                     : (is_string(optional($user)->role) ? (string) $user->role : 'intern');
 
+                $profilePhotoUrl = $intern->profile_photo
+                    ? (str_starts_with($intern->profile_photo, 'http')
+                        ? $intern->profile_photo
+                        : '/storage/' . $intern->profile_photo)
+                    : null;
+
                 return [
                     'id' => $intern->id,
                     'user_id' => $intern->user_id,
@@ -116,6 +130,7 @@ class InternController extends BaseController
                         : (int) $intern->required_hours,
                     'is_active' => (bool) $intern->is_active,
                     'role' => $role,
+                    'profile_photo' => $profilePhotoUrl,
                 ];
             });
 
@@ -197,26 +212,41 @@ class InternController extends BaseController
             'weekly_availability.wednesday' => 'required|string|in:available,not_available,full_day,half_day',
             'weekly_availability.thursday' => 'required|string|in:available,not_available,full_day,half_day',
             'weekly_availability.friday' => 'required|string|in:available,not_available,full_day,half_day',
+            'profile_photo' => 'nullable|string',
         ]);
 
         $user = $request->user();
 
-        $intern = Intern::updateOrCreate(
-            ['user_id' => $user->id],
-            [
-                'user_id' => $user->id,
-                'full_name' => $validated['full_name'],
-                'school' => $validated['school'],
-                'course' => $validated['program'],
-                'phone' => $validated['phone'],
-                'emergency_contact_name' => $validated['emergency_contact_name'],
-                'emergency_contact_phone' => $validated['emergency_contact_phone'],
-                'required_hours' => $validated['required_hours'],
-                'weekly_availability' => $validated['weekly_availability'],
-                'onboarded_at' => now(),
-                'is_active' => true,
-            ]
-        );
+        $profilePhotoPath = null;
+        if (! empty($validated['profile_photo'] ?? '')) {
+            $profilePhotoPath = $this->saveProfilePhoto($validated['profile_photo']);
+        }
+
+        $intern = Intern::firstOrNew(['user_id' => $user->id]);
+
+        if ($profilePhotoPath && $intern->profile_photo) {
+            Storage::disk('public')->delete($intern->profile_photo);
+        }
+
+        $internData = [
+            'user_id' => $user->id,
+            'full_name' => $validated['full_name'],
+            'school' => $validated['school'],
+            'course' => $validated['program'],
+            'phone' => $validated['phone'],
+            'emergency_contact_name' => $validated['emergency_contact_name'],
+            'emergency_contact_phone' => $validated['emergency_contact_phone'],
+            'required_hours' => $validated['required_hours'],
+            'weekly_availability' => $validated['weekly_availability'],
+            'onboarded_at' => now(),
+            'is_active' => true,
+        ];
+        if ($profilePhotoPath !== null) {
+            $internData['profile_photo'] = $profilePhotoPath;
+        }
+        $intern->fill($internData);
+        $intern->save();
+        $intern->load('supervisor');
 
         // Sync school_schedules from weekly_availability for "Excused due to school schedule"
         // day_of_week: 0=Sunday, 1=Monday, ..., 5=Friday, 6=Saturday
@@ -252,14 +282,60 @@ class InternController extends BaseController
 
     public function show(Request $request, int $id): JsonResponse
     {
-        $intern = Intern::with(['supervisor', 'department'])->find($id);
+        $intern = Intern::with(['supervisor', 'department', 'user'])->find($id);
         if (!$intern) {
             return $this->notFound('Intern not found');
         }
         if (!$this->canAccessIntern($request, $intern)) {
             return $this->forbidden('You do not have permission to view this intern.');
         }
-        return $this->success($this->formatInternProfile($intern), 'Intern details');
+        return $this->success($this->formatInternDetail($intern), 'Intern details');
+    }
+
+    /**
+     * Full intern detail for admin/supervisor (includes all onboarding fields).
+     */
+    private function formatInternDetail(Intern $intern): array
+    {
+        $profilePhotoUrl = $intern->profile_photo
+            ? (str_starts_with($intern->profile_photo, 'http')
+                ? $intern->profile_photo
+                : '/storage/' . $intern->profile_photo)
+            : null;
+
+        $user = $intern->user;
+        $role = $user && $user->role instanceof \App\Enums\UserRole
+            ? $user->role->value
+            : (is_string(optional($user)->role) ? (string) $user->role : 'intern');
+
+        return [
+            'id' => $intern->id,
+            'user_id' => $intern->user_id,
+            'full_name' => $intern->full_name,
+            'profile_photo' => $profilePhotoUrl,
+            'email' => optional($intern->user)->email,
+            'student_id' => $intern->student_id,
+            'school' => $intern->school,
+            'course' => $intern->course,
+            'year_level' => $intern->year_level,
+            'phone' => $intern->phone,
+            'emergency_contact_name' => $intern->emergency_contact_name,
+            'emergency_contact_phone' => $intern->emergency_contact_phone,
+            'required_hours' => $intern->required_hours === null ? null : (int) $intern->required_hours,
+            'weekly_availability' => $intern->weekly_availability,
+            'company_name' => $intern->company_name,
+            'department_id' => $intern->department_id,
+            'department_name' => $intern->department?->name,
+            'supervisor_user_id' => $intern->supervisor_user_id,
+            'supervisor_name' => $intern->supervisor_name,
+            'supervisor_email' => $intern->supervisor?->email ?? $intern->supervisor_email,
+            'supervisor_contact' => $intern->supervisor_contact,
+            'start_date' => optional($intern->start_date)->toDateString(),
+            'end_date' => optional($intern->end_date)->toDateString(),
+            'onboarded_at' => optional($intern->onboarded_at)->toISOString(),
+            'is_active' => (bool) $intern->is_active,
+            'role' => $role,
+        ];
     }
 
     public function update(Request $request, int $id): JsonResponse
@@ -323,5 +399,30 @@ class InternController extends BaseController
             ['id' => $intern->id, 'is_active' => false],
             'Intern deactivated. Record retained for history.'
         );
+    }
+
+    /**
+     * Save base64 profile photo to storage.
+     */
+    private function saveProfilePhoto(string $base64): string
+    {
+        if (preg_match('/^data:image\/(\w+);base64,/', $base64, $matches)) {
+            $base64 = substr($base64, strpos($base64, ',') + 1);
+            $extension = $matches[1];
+        } else {
+            $extension = 'jpg';
+        }
+
+        $imageData = base64_decode($base64);
+        if ($imageData === false) {
+            throw new \Exception('Invalid base64 image data');
+        }
+
+        $filename = 'profile_' . uniqid() . '_' . time() . '.' . $extension;
+        $path = 'profile/' . $filename;
+
+        Storage::disk('public')->put($path, $imageData);
+
+        return $path;
     }
 }

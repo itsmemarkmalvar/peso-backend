@@ -15,6 +15,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 
 class InternAndGipSeeder extends Seeder
 {
@@ -38,13 +39,13 @@ class InternAndGipSeeder extends Seeder
     {
         $this->geofenceId = GeofenceLocation::where('is_active', true)->first()?->id;
         if (!$this->geofenceId) {
-            $this->warn('Run GeofenceSeeder first so attendance can use geofence_location_id.');
+            Log::warning('InternAndGipSeeder: Run GeofenceSeeder first so attendance can use geofence_location_id.');
         }
 
         $this->seedSupervisor();
         $departments = Department::where('is_active', true)->pluck('id')->all();
         if (empty($departments)) {
-            $this->warn('Run DepartmentSeeder first.');
+            Log::warning('InternAndGipSeeder: Run DepartmentSeeder first.');
         }
 
         $internUsers = $this->seedUsers(UserRole::INTERN, self::INTERN_COUNT);

@@ -31,6 +31,7 @@ class Intern extends Model
         'end_date',
         'is_active',
         'onboarded_at',
+        'profile_photo',
     ];
 
     protected $casts = [

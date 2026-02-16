@@ -8,11 +8,16 @@ return new class extends Migration
 {
     /**
      * Run the migrations.
+     * Adds department_id after departments table exists (000010).
      */
     public function up(): void
     {
         Schema::table('interns', function (Blueprint $table) {
-            $table->json('weekly_availability')->nullable()->after('required_hours');
+            $table->foreignId('department_id')
+                ->nullable()
+                ->after('weekly_availability')
+                ->constrained('departments')
+                ->nullOnDelete();
         });
     }
 
@@ -21,12 +26,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        if (!Schema::hasColumn('interns', 'weekly_availability')) {
-            return;
-        }
-
         Schema::table('interns', function (Blueprint $table) {
-            $table->dropColumn('weekly_availability');
+            $table->dropForeign(['department_id']);
         });
     }
 };
