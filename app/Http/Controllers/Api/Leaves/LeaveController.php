@@ -162,6 +162,14 @@ class LeaveController extends BaseController
             return $this->forbidden('Only administrators and supervisors can reject leave requests.');
         }
 
+        // Ensure JSON body is merged (e.g. when proxy doesn't populate input)
+        if (! $request->has('reason') && $request->getContent()) {
+            $decoded = json_decode($request->getContent(), true);
+            if (is_array($decoded)) {
+                $request->merge($decoded);
+            }
+        }
+
         $validated = $request->validate([
             'reason' => 'required|string|max:1000',
             'comments' => 'nullable|string|max:1000',
