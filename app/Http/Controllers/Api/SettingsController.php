@@ -36,11 +36,8 @@ class SettingsController extends BaseController
 
         $validator = Validator::make($request->all(), [
             'grace_period_minutes' => 'sometimes|integer|min:0|max:120',
-            'minimum_overtime_minutes' => 'sometimes|integer|min:0|max:480',
             'verification_gps' => 'sometimes|boolean',
             'verification_selfie' => 'sometimes|boolean',
-            'verification_qr' => 'sometimes|boolean',
-            'verification_device_fingerprint' => 'sometimes|boolean',
         ]);
 
         if ($validator->fails()) {
@@ -48,12 +45,14 @@ class SettingsController extends BaseController
         }
 
         $settings = SystemSetting::get();
-        $settings->update($validator->validated());
+        $data = $validator->validated();
+        $settings->update($data);
+        $settings->refresh();
 
         return $this->success([
-            'grace_period_minutes' => $settings->grace_period_minutes,
-            'verification_gps' => $settings->verification_gps,
-            'verification_selfie' => $settings->verification_selfie,
+            'grace_period_minutes' => (int) $settings->grace_period_minutes,
+            'verification_gps' => (bool) $settings->verification_gps,
+            'verification_selfie' => (bool) $settings->verification_selfie,
         ], 'Settings updated successfully');
     }
 }

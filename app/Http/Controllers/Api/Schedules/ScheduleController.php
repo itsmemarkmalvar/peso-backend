@@ -96,6 +96,18 @@ class ScheduleController extends BaseController
         return $this->success(null, 'Schedule deleted');
     }
 
+    /**
+     * Normalize time string to HH:mm (strip seconds if present) for validation.
+     */
+    private function normalizeTimeToHHi(string $value): string
+    {
+        $value = trim($value);
+        if (strlen($value) >= 5 && preg_match('/^\d{1,2}:\d{2}(:\d{2})?$/', $value)) {
+            return substr($value, 0, 5); // HH:mm
+        }
+        return $value;
+    }
+
     public function assign(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -104,7 +116,31 @@ class ScheduleController extends BaseController
             return $this->forbidden('Only administrators and supervisors can assign schedules');
         }
 
-        $validator = Validator::make($request->all(), [
+        // Normalize input so times are HH:mm (backend and proxies may send HH:mm:ss)
+        $input = $request->all();
+        $daysRaw = $input['days'] ?? null;
+        if (is_array($daysRaw) && count($daysRaw) > 0) {
+            $input['days'] = array_values(array_map(function ($day) {
+                if (! is_array($day)) {
+                    return $day;
+                }
+                if (isset($day['start_time']) && is_string($day['start_time'])) {
+                    $day['start_time'] = $this->normalizeTimeToHHi($day['start_time']);
+                }
+                if (isset($day['end_time']) && is_string($day['end_time'])) {
+                    $day['end_time'] = $this->normalizeTimeToHHi($day['end_time']);
+                }
+                return $day;
+            }, $daysRaw));
+        }
+        if (isset($input['lunch_break_start']) && is_string($input['lunch_break_start'])) {
+            $input['lunch_break_start'] = $this->normalizeTimeToHHi($input['lunch_break_start']);
+        }
+        if (isset($input['lunch_break_end']) && is_string($input['lunch_break_end'])) {
+            $input['lunch_break_end'] = $this->normalizeTimeToHHi($input['lunch_break_end']);
+        }
+
+        $validator = Validator::make($input, [
             'name' => 'nullable|string|max:255',
             'days' => 'required|array|min:1',
             'days.*.day_of_week' => 'required|integer|min:0|max:6',
@@ -113,17 +149,20 @@ class ScheduleController extends BaseController
             'lunch_break_start' => 'required|date_format:H:i',
             'lunch_break_end' => 'required|date_format:H:i|after:lunch_break_start',
             'admin_notes' => 'nullable|string|max:500',
+        ], [
+            'days.required' => 'At least one work day must be selected.',
+            'days.min' => 'At least one work day must be selected.',
         ]);
 
         if ($validator->fails()) {
             return $this->validationError($validator->errors());
         }
 
-        $days = $request->input('days');
-        $scheduleName = $request->input('name');
-        $lunchBreakStart = $request->input('lunch_break_start');
-        $lunchBreakEnd = $request->input('lunch_break_end');
-        $adminNotes = $request->input('admin_notes');
+        $days = $input['days'];
+        $scheduleName = $input['name'] ?? null;
+        $lunchBreakStart = $input['lunch_break_start'];
+        $lunchBreakEnd = $input['lunch_break_end'];
+        $adminNotes = $input['admin_notes'] ?? null;
 
         // Calculate break duration in minutes
         $breakStart = \Carbon\Carbon::createFromFormat('H:i', $lunchBreakStart);
