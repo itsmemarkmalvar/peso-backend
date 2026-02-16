@@ -20,15 +20,8 @@ class GeofenceLocationsController extends BaseController
         $user = $request->user();
         $activeOnly = $request->boolean('active_only', false);
 
-        $query = GeofenceLocation::query();
-
-        // Intern/GIP can only see active geofences (same rule as Intern)
-        if ($user->isInternOrGip()) {
-            $query->where('is_active', true);
-        } elseif ($activeOnly) {
-            // Admin/Supervisor can filter by active_only if requested
-            $query->where('is_active', true);
-        }
+        // Only active locations in list (deactivated = "deleted" for UI, so they disappear)
+        $query = GeofenceLocation::query()->where('is_active', true);
 
         $locations = $query->orderBy('name', 'asc')->get();
 
@@ -120,6 +113,14 @@ class GeofenceLocationsController extends BaseController
             return $this->notFound('Geofence location not found');
         }
 
+        // Ensure JSON body is merged (e.g. when proxy doesn't populate PUT input)
+        if ($request->getContent()) {
+            $decoded = json_decode($request->getContent(), true);
+            if (is_array($decoded)) {
+                $request->merge($decoded);
+            }
+        }
+
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
             'address' => 'nullable|string|max:1000',
@@ -130,6 +131,7 @@ class GeofenceLocationsController extends BaseController
         ]);
 
         $location->update($validated);
+        $location->refresh();
 
         return $this->success($location, 'Geofence location updated successfully');
     }
