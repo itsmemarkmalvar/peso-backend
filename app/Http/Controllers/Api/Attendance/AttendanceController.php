@@ -377,6 +377,11 @@ class AttendanceController extends BaseController
             }
         }
 
+        // Normal day (no late, no undertime, no overtime) → auto-approve so hours count in Time Tracking.
+        // Exception days (late/undertime/overtime) stay pending and go to Approvals for admin to approve/reject.
+        $isNormalDay = !$attendance->is_late && !$isUndertime && !$isOvertime;
+        $status = $isNormalDay ? AttendanceStatus::APPROVED : AttendanceStatus::PENDING;
+
         try {
             DB::beginTransaction();
 
@@ -390,6 +395,7 @@ class AttendanceController extends BaseController
                 'total_hours' => $totalHours,
                 'is_undertime' => $isUndertime,
                 'is_overtime' => $isOvertime,
+                'status' => $status,
             ]);
 
             DB::commit();
