@@ -81,6 +81,13 @@ class LeaveController extends BaseController
 
     public function store(Request $request): JsonResponse
     {
+        if ($request->getContent() && ! $request->has('type') && ! $request->has('reason_title')) {
+            $decoded = json_decode($request->getContent(), true);
+            if (is_array($decoded)) {
+                $request->merge($decoded);
+            }
+        }
+
         $validated = $request->validate([
             'type' => ['required', Rule::in(['Leave', 'Holiday', 'leave', 'holiday'])],
             'reason_title' => 'required|string|max:255',

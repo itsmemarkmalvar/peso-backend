@@ -69,6 +69,8 @@ class AttendanceController extends BaseController
             return $this->notFound('Intern profile not found');
         }
 
+        $this->mergeAttendanceLocationInput($request);
+
         $settings = SystemSetting::get();
         $rules = [
             'location_lat' => ($settings->verification_gps ? 'required' : 'nullable') . '|numeric|between:-90,90',
@@ -267,6 +269,8 @@ class AttendanceController extends BaseController
             return $this->notFound('Intern profile not found');
         }
 
+        $this->mergeAttendanceLocationInput($request);
+
         $settings = SystemSetting::get();
         $rules = [
             'location_lat' => ($settings->verification_gps ? 'required' : 'nullable') . '|numeric|between:-90,90',
@@ -428,6 +432,8 @@ class AttendanceController extends BaseController
             return $this->notFound('Intern profile not found');
         }
 
+        $this->mergeAttendanceLocationInput($request);
+
         $settings = SystemSetting::get();
         $rules = [
             'location_lat' => ($settings->verification_gps ? 'required' : 'nullable') . '|numeric|between:-90,90',
@@ -532,6 +538,8 @@ class AttendanceController extends BaseController
         if (!$intern) {
             return $this->notFound('Intern profile not found');
         }
+
+        $this->mergeAttendanceLocationInput($request);
 
         $settings = SystemSetting::get();
         $rules = [
@@ -898,6 +906,31 @@ class AttendanceController extends BaseController
         }
 
         return $this->success($attendance->load(['intern', 'geofenceLocation']), 'Attendance updated');
+    }
+
+    /**
+     * Ensure location_lat/location_lng are on the request: merge raw JSON if missing, and accept nested location.lat / location.lng.
+     */
+    private function mergeAttendanceLocationInput(Request $request): void
+    {
+        $input = $request->all();
+        if (empty($input) && $request->getContent()) {
+            $decoded = json_decode($request->getContent(), true);
+            if (is_array($decoded)) {
+                $request->merge($decoded);
+                $input = $request->all();
+            }
+        }
+        if ($request->has('location_lat') && $request->has('location_lng')) {
+            return;
+        }
+        $location = $request->input('location');
+        if (is_array($location) && isset($location['lat'], $location['lng'])) {
+            $request->merge([
+                'location_lat' => $location['lat'],
+                'location_lng' => $location['lng'],
+            ]);
+        }
     }
 
     /**
