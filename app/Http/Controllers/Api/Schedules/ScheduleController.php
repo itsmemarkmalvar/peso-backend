@@ -145,7 +145,8 @@ class ScheduleController extends BaseController
             'days' => 'required|array|min:1',
             'days.*.day_of_week' => 'required|integer|min:0|max:6',
             'days.*.start_time' => 'required|date_format:H:i',
-            'days.*.end_time' => 'required|date_format:H:i|after:days.*.start_time',
+            // end_time can be before start_time for graveyard/overnight shifts (ends next day)
+            'days.*.end_time' => 'required|date_format:H:i',
             'lunch_break_start' => 'required|date_format:H:i',
             'lunch_break_end' => 'required|date_format:H:i|after:lunch_break_start',
             'admin_notes' => 'nullable|string|max:500',
