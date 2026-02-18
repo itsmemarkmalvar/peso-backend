@@ -443,9 +443,39 @@ class InternDashboardController extends BaseController
                 'date' => $attendance->date->format('M j, Y'),
                 'status' => $status,
                 'detail' => $detail,
+                'approval_type' => $this->formatApprovalType($attendance),
             ];
         })->values()->all();
 
         return $this->success(['items' => $items], 'Approvals list retrieved');
+    }
+
+    /**
+     * Return human-readable approval type label for display.
+     */
+    private function formatApprovalType(Attendance $attendance): ?string
+    {
+        if ($attendance->approval_type) {
+            return match ($attendance->approval_type) {
+                'late_clock_in' => 'Late',
+                'gps_correction' => 'Correction',
+                'early_clock_out' => 'Early out',
+                'overtime' => 'Overtime',
+                default => null,
+            };
+        }
+        if ($attendance->is_overtime) {
+            return 'Overtime';
+        }
+        if ($attendance->is_undertime) {
+            return 'Early out';
+        }
+        if ($attendance->is_gps_correction) {
+            return 'Correction';
+        }
+        if ($attendance->is_late) {
+            return 'Late';
+        }
+        return null;
     }
 }
