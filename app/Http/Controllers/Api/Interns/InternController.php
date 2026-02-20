@@ -197,10 +197,11 @@ class InternController extends BaseController
             }
         }
 
-        $validated = $request->validate([
+        $user = $request->user();
+        $isGip = $user && method_exists($user, 'isGip') && $user->isGip();
+
+        $rules = [
             'full_name' => 'required|string|max:255',
-            'school' => 'required|string|max:255',
-            'program' => 'required|string|max:255',
             'phone' => 'required|string|max:50',
             'emergency_contact_name' => 'required|string|max:255',
             'emergency_contact_phone' => 'required|string|max:50',
@@ -212,9 +213,15 @@ class InternController extends BaseController
             'weekly_availability.thursday' => 'required|string|in:available,not_available,full_day,half_day',
             'weekly_availability.friday' => 'required|string|in:available,not_available,full_day,half_day',
             'profile_photo' => 'nullable|string',
-        ]);
-
-        $user = $request->user();
+        ];
+        if ($isGip) {
+            $rules['school'] = 'sometimes|string|max:255';
+            $rules['program'] = 'sometimes|string|max:255';
+        } else {
+            $rules['school'] = 'required|string|max:255';
+            $rules['program'] = 'required|string|max:255';
+        }
+        $validated = $request->validate($rules);
 
         $profilePhotoPath = null;
         if (! empty($validated['profile_photo'] ?? '')) {
@@ -230,8 +237,12 @@ class InternController extends BaseController
         $internData = [
             'user_id' => $user->id,
             'full_name' => $validated['full_name'],
-            'school' => $validated['school'],
-            'course' => $validated['program'],
+            'school' => $isGip
+                ? ($validated['school'] ?? $intern->school ?? 'Pending')
+                : $validated['school'],
+            'course' => $isGip
+                ? ($validated['program'] ?? $intern->course ?? 'Pending')
+                : $validated['program'],
             'phone' => $validated['phone'],
             'emergency_contact_name' => $validated['emergency_contact_name'],
             'emergency_contact_phone' => $validated['emergency_contact_phone'],
