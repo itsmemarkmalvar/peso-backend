@@ -29,6 +29,7 @@ class Intern extends Model
         'is_active',
         'onboarded_at',
         'profile_photo',
+        'resume_path',
     ];
 
     protected $casts = [

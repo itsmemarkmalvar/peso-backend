@@ -100,9 +100,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // Interns
     Route::prefix('interns')->group(function () {
         Route::get('/me', [App\Http\Controllers\Api\Interns\InternController::class, 'me']);
+        Route::get('/me/resume', [App\Http\Controllers\Api\Interns\InternController::class, 'viewMyResume']);
         Route::post('/me', [App\Http\Controllers\Api\Interns\InternController::class, 'storeProfile']);
         Route::get('/', [App\Http\Controllers\Api\Interns\InternController::class, 'index']);
         Route::post('/', [App\Http\Controllers\Api\Interns\InternController::class, 'store']);
+        Route::get('/{id}/resume', [App\Http\Controllers\Api\Interns\InternController::class, 'viewResume']);
         Route::get('/{id}', [App\Http\Controllers\Api\Interns\InternController::class, 'show']);
         Route::put('/{id}', [App\Http\Controllers\Api\Interns\InternController::class, 'update']);
         Route::delete('/{id}', [App\Http\Controllers\Api\Interns\InternController::class, 'destroy']);

@@ -7,11 +7,16 @@ use App\Models\Intern;
 use App\Models\SchoolSchedule;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class InternController extends BaseController
 {
+    private const MAX_RESUME_SIZE_KB = 5120; // 5MB
+
     /**
      * Check if the current user can view or modify the given intern.
      * Admin: any. Supervisor: only interns they supervise. Intern/GIP: only their own.
@@ -68,6 +73,8 @@ class InternController extends BaseController
             'start_date' => optional($intern->start_date)->toDateString(),
             'end_date' => optional($intern->end_date)->toDateString(),
             'onboarded_at' => optional($intern->onboarded_at)->toISOString(),
+            'resume_path' => $intern->resume_path,
+            'resume_file_name' => $intern->resume_path ? basename($intern->resume_path) : null,
         ];
     }
 
@@ -130,6 +137,7 @@ class InternController extends BaseController
                     'is_active' => (bool) $intern->is_active,
                     'role' => $role,
                     'profile_photo' => $profilePhotoUrl,
+                    'resume_path' => $intern->resume_path,
                 ];
             });
 
@@ -187,6 +195,31 @@ class InternController extends BaseController
         return $this->success($this->formatInternProfile($intern), 'Intern profile');
     }
 
+    public function viewMyResume(Request $request): BinaryFileResponse|JsonResponse
+    {
+        $user = $request->user();
+        $intern = Intern::where('user_id', $user->id)->first();
+
+        if (!$intern) {
+            return $this->notFound('Intern profile not found');
+        }
+
+        return $this->streamResumeFile($intern);
+    }
+
+    public function viewResume(Request $request, int $id): BinaryFileResponse|JsonResponse
+    {
+        $intern = Intern::find($id);
+        if (!$intern) {
+            return $this->notFound('Intern not found');
+        }
+        if (!$this->canAccessIntern($request, $intern)) {
+            return $this->forbidden('You do not have permission to view this resume.');
+        }
+
+        return $this->streamResumeFile($intern);
+    }
+
     public function storeProfile(Request $request): JsonResponse
     {
         // Ensure JSON body is merged (e.g. when proxy doesn't populate input)
@@ -213,6 +246,13 @@ class InternController extends BaseController
             'weekly_availability.thursday' => 'required|string|in:available,not_available,full_day,half_day',
             'weekly_availability.friday' => 'required|string|in:available,not_available,full_day,half_day',
             'profile_photo' => 'nullable|string',
+            'resume' => [
+                'nullable',
+                'file',
+                'mimes:pdf',
+                'mimetypes:application/pdf,application/x-pdf',
+                'max:' . self::MAX_RESUME_SIZE_KB,
+            ],
         ];
         if ($isGip) {
             $rules['school'] = 'sometimes|string|max:255';
@@ -229,9 +269,24 @@ class InternController extends BaseController
         }
 
         $intern = Intern::firstOrNew(['user_id' => $user->id]);
+        $resumeFile = $request->file('resume');
+
+        if (!$resumeFile && !$intern->resume_path) {
+            throw ValidationException::withMessages([
+                'resume' => ['Resume (PDF) is required to proceed.'],
+            ]);
+        }
 
         if ($profilePhotoPath && $intern->profile_photo) {
             Storage::disk('public')->delete($intern->profile_photo);
+        }
+
+        $resumePath = null;
+        if ($resumeFile instanceof UploadedFile) {
+            $resumePath = $this->saveResumeFile($resumeFile, (int) $user->id);
+            if ($intern->resume_path) {
+                Storage::disk('local')->delete($intern->resume_path);
+            }
         }
 
         $internData = [
@@ -254,6 +309,9 @@ class InternController extends BaseController
         ];
         if ($profilePhotoPath !== null) {
             $internData['profile_photo'] = $profilePhotoPath;
+        }
+        if ($resumePath !== null) {
+            $internData['resume_path'] = $resumePath;
         }
         $intern->fill($internData);
         $intern->save();
@@ -343,6 +401,8 @@ class InternController extends BaseController
             'onboarded_at' => optional($intern->onboarded_at)->toISOString(),
             'is_active' => (bool) $intern->is_active,
             'role' => $role,
+            'resume_path' => $intern->resume_path,
+            'resume_file_name' => $intern->resume_path ? basename($intern->resume_path) : null,
         ];
     }
 
@@ -429,5 +489,46 @@ class InternController extends BaseController
         Storage::disk('public')->put($path, $imageData);
 
         return $path;
+    }
+
+    /**
+     * Save uploaded PDF resume to private storage.
+     */
+    private function saveResumeFile(UploadedFile $file, int $userId): string
+    {
+        $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+        $sanitizedName = preg_replace('/[^A-Za-z0-9_-]/', '_', $originalName ?? '') ?: 'resume';
+        $sanitizedName = trim($sanitizedName, '_') ?: 'resume';
+        $filename = sprintf(
+            '%s_%s_%d_%s.pdf',
+            $sanitizedName,
+            now()->format('Ymd_His'),
+            $userId,
+            bin2hex(random_bytes(4))
+        );
+
+        return $file->storeAs("resumes/{$userId}", $filename, 'local');
+    }
+
+    /**
+     * Stream intern resume inline for in-browser viewing.
+     */
+    private function streamResumeFile(Intern $intern): BinaryFileResponse|JsonResponse
+    {
+        if (!$intern->resume_path) {
+            return $this->notFound('Resume not found.');
+        }
+        if (!Storage::disk('local')->exists($intern->resume_path)) {
+            return $this->notFound('Resume file is missing from storage.');
+        }
+
+        $fullPath = Storage::disk('local')->path($intern->resume_path);
+        $downloadName = basename($intern->resume_path);
+
+        return response()->file($fullPath, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $downloadName . '"',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 }
