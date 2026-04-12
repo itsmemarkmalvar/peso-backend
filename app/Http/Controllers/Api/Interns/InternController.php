@@ -75,6 +75,7 @@ class InternController extends BaseController
             'onboarded_at' => optional($intern->onboarded_at)->toISOString(),
             'resume_path' => $intern->resume_path,
             'resume_file_name' => $intern->resume_path ? basename($intern->resume_path) : null,
+            'nsrp_is_completed' => (bool) optional(optional($intern->user)->nsrpForm)->is_completed,
         ];
     }
 
@@ -82,7 +83,7 @@ class InternController extends BaseController
     {
         $user = $request->user();
         $query = Intern::query()
-            ->with(['user', 'supervisor', 'department'])
+            ->with(['user.nsrpForm', 'supervisor', 'department'])
             ->orderBy('full_name');
 
         // Admin and supervisor both see all interns (supervisor restrictions are on actions, not on viewing)
@@ -138,6 +139,7 @@ class InternController extends BaseController
                     'role' => $role,
                     'profile_photo' => $profilePhotoUrl,
                     'resume_path' => $intern->resume_path,
+                    'nsrp_is_completed' => (bool) optional(optional($intern->user)->nsrpForm)->is_completed,
                 ];
             });
 
@@ -186,7 +188,7 @@ class InternController extends BaseController
     public function me(Request $request): JsonResponse
     {
         $user = $request->user();
-        $intern = Intern::with('supervisor')->where('user_id', $user->id)->first();
+        $intern = Intern::with(['supervisor', 'user.nsrpForm'])->where('user_id', $user->id)->first();
 
         if (!$intern) {
             return $this->success(null, 'Intern profile not found');
@@ -351,7 +353,7 @@ class InternController extends BaseController
 
     public function show(Request $request, int $id): JsonResponse
     {
-        $intern = Intern::with(['supervisor', 'department', 'user'])->find($id);
+        $intern = Intern::with(['supervisor', 'department', 'user.nsrpForm'])->find($id);
         if (!$intern) {
             return $this->notFound('Intern not found');
         }
@@ -403,6 +405,7 @@ class InternController extends BaseController
             'role' => $role,
             'resume_path' => $intern->resume_path,
             'resume_file_name' => $intern->resume_path ? basename($intern->resume_path) : null,
+            'nsrp_is_completed' => (bool) optional(optional($intern->user)->nsrpForm)->is_completed,
         ];
     }
 

@@ -110,6 +110,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/{id}', [App\Http\Controllers\Api\Interns\InternController::class, 'destroy']);
     });
 
+    // NSRP Forms
+    Route::prefix('nsrp')->group(function () {
+        Route::get('/me', [App\Http\Controllers\Api\NsrpFormController::class, 'me']);
+        Route::get('/me/status', [App\Http\Controllers\Api\NsrpFormController::class, 'status']);
+        Route::put('/me/draft', [App\Http\Controllers\Api\NsrpFormController::class, 'saveDraft']);
+        Route::post('/me/submit', [App\Http\Controllers\Api\NsrpFormController::class, 'submit']);
+        Route::get('/{userId}/pdf', [App\Http\Controllers\Api\NsrpFormController::class, 'pdf']);
+        Route::get('/{userId}', [App\Http\Controllers\Api\NsrpFormController::class, 'show']);
+    });
+
     // Intern Dashboard
     Route::prefix('intern')->group(function () {
         Route::get('/dashboard', [App\Http\Controllers\Api\Interns\InternDashboardController::class, 'dashboard']);

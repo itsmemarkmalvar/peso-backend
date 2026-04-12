@@ -66,4 +66,9 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Department::class);
     }
+
+    public function nsrpForm()
+    {
+        return $this->hasOne(NsrpForm::class);
+    }
 }
